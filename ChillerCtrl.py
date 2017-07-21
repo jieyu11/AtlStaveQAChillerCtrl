@@ -37,6 +37,79 @@ Dictionary of abbreviations: ---------------------------------------------------
 
 # Main code section ------------------------------------------------------------
 
+  # ----------------- #
+  # ------ LOG ------ #
+  # open a log file to save basic information: 
+  #  - Date: 
+  #  - Version of code: 
+  #  - Stave ID: 
+
+  inst_log = loadLog()
+
+  # -------------------- #
+  # ------ DEVICE ------ #
+  # load devices with USB connection
+  #  - Chiller
+  #  - Boost Pump
+  #  - Thermocouple
+  #  - Humidity
+  #  - IR camera
+  inst_usb = loadDevices()
+
+  # print the status of all devices
+  # if one of them is not OK, return error 
+  # ask if we can ignore this devices,
+  #   - yes: go ahead
+  #   - no: abort
+  inst_usb -> printDevicesStatus()
+  if !inst_usb -> OK:
+    # ask if it is OK to ignore
+    if !igore: 
+      abort()
+
+  # ---------------------- #
+  # ------ COMMANDS ------ #
+  # load commands file, which contains:
+  # (need to look up manuals.)
+  #  - chiller_temperature: TEMP
+  #  - chiller_liquid_level: LIQUID
+  #  - boostpump_pressure: PREP
+  #  ...
+
+  inst_command = loadCommands()
+
+  # -------------------- #
+  # ------ CONFIG ------ #
+  # load configure file, which contains:
+  #  - Number of Loops (nLoops): 100
+  #  - High temperature, C (tempHigh): 50
+  #  - Low temperature, C (tempLow): -55
+  #  - Time per loop, minutes (timeEveryLoop): 60
+
+  inst_conf = loadConfig()
+
+  # ------------------ #
+  # ------ MAIN ------ #
+  # main function to run the experiment
+  #   - start devices: BP, chiller, etc.
+  #   - check status in every second
+  #   - change chiller setup temperature in every loop
+
+  inst_start = start()
+  for i in range(0,nLoops):
+    time=0
+    for time in every_second:
+      status = checkDeviceStatus()
+      if not status:
+        abort()
+
+      recordLog()
+      if time is timeEveryLoop / 2:
+        setChillerTemperature(tempHigh);
+      if time is timeEveryLoop:
+        setChillerTemperature(tempLow);
+        break
+
 
 # Upon startup print on computer screen this code version.
 #
