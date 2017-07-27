@@ -55,18 +55,21 @@ Dictionary of abbreviations: ---------------------------------------------------
   #  - Thermocouple
   #  - Humidity
   #  - IR camera
-  inst_usb = loadDevices()
-
+  #
   # print the status of all devices
   # if one of them is not OK, return error 
   # ask if we can ignore this devices,
   #   - yes: go ahead
   #   - no: abort
-  inst_usb -> printDevicesStatus()
-  if !inst_usb -> OK:
-    # ask if it is OK to ignore
-    if !igore: 
-      abort()
+  #
+  istDevHdl = clsDevicesHandler()
+
+  # leave the possibility to check 
+  # the status of a device at any time one wants
+  bolStatus = istDevHdl.devicesStatus( "chiller" )
+  if bolStatus is not True:
+    if igore is not True: 
+      istDevHdl.abort("chiller")
 
   # ---------------------- #
   # ------ COMMANDS ------ #
@@ -77,7 +80,7 @@ Dictionary of abbreviations: ---------------------------------------------------
   #  - boostpump_pressure: PREP
   #  ...
 
-  inst_command = loadCommands()
+  istCommand = loadCommands()
 
   # -------------------- #
   # ------ CONFIG ------ #
@@ -87,7 +90,7 @@ Dictionary of abbreviations: ---------------------------------------------------
   #  - Low temperature, C (tempLow): -55
   #  - Time per loop, minutes (timeEveryLoop): 60
 
-  inst_conf = loadConfig()
+  istConf = loadConfig()
 
   # ------------------ #
   # ------ MAIN ------ #
@@ -96,14 +99,16 @@ Dictionary of abbreviations: ---------------------------------------------------
   #   - check status in every second
   #   - change chiller setup temperature in every loop
 
-  inst_start = start()
+  istCommand.start()
   for i in range(0,nLoops):
     time=0
     for time in every_second:
-      status = checkDeviceStatus()
-      if not status:
+      bolStatus = deviceStatus("chiller") # or other devices
+      if bolStatus is not True:
         abort()
 
+  # need to think more carefully how this working loop should be written !!!
+  # place holder for now!
       recordLog()
       if time is timeEveryLoop / 2:
         setChillerTemperature(tempHigh);

@@ -32,12 +32,14 @@ Notice
   Following are the abbreviations used for variable/object identifications:
     int – integer
     str – string
+    chr - char
     dict – dictionary
     bol – Boolean
     lng – long
     flt – float
     lst – list
     cls - class
+    ist - class instance
 
 
 Authors
