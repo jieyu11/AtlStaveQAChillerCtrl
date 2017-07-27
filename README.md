@@ -27,6 +27,19 @@ History
 
 	?-Aug-2017 version 1.0 released.
 
+Notice
+ 
+  Following are the abbreviations used for variable/object identifications:
+    int – integer
+    str – string
+    dict – dictionary
+    bol – Boolean
+    lng – long
+    flt – float
+    lst – list
+    cls - class
+
+
 Authors
 
 	William Heidorn, Iowa State University,  USA  wheidorn@iastate.edu
