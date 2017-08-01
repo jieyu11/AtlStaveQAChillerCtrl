@@ -1,13 +1,19 @@
+#
 # read: https://docs.python.org/3.6/library/configparser.html
+#
 [ Chiller ]
-Port = 95
+Port = /dev/tty.usbserial-A500
+Baud = 9500
 
 [ Pump ]
-Port = 96
+Port = /dev/tty.usbserial-A600
+Baud = 9600
 
 [ Humidity ]
-Port = 97
+Port = /dev/tty.usbserial-A700
+Baud = 9700
 
 [ Thermocouple ]
-Port = 98
+Port = /dev/tty.usbserial-A800
+Baud = 9800
 
