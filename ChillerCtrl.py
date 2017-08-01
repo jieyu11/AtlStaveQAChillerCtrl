@@ -29,6 +29,12 @@ Dictionary of abbreviations: ---------------------------------------------------
 
 
 # Import section ---------------------------------------------------------------
+# logging: https://docs.python.org/3.6/howto/logging.html
+import logging
+# config: https://docs.python.org/3.6/library/configparser.html
+import configparser
+
+from datetime import datetime
 
 # Global data section ----------------------------------------------------------
 
@@ -45,7 +51,31 @@ Dictionary of abbreviations: ---------------------------------------------------
   #  - Version of code: 
   #  - Stave ID: 
 
-  inst_log = loadLog()
+  strtime = datetime.now().strftime('%Y-%m-%d_%Hh%Mm%Ss')
+  logging.basicConfig(filename='Log_'+strtime+'.txt', level=logging.DEBUG)
+  logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+  logging.info('Starting the program.');
+
+
+  # -------------------- #
+  # ------ CONFIG ------ #
+  # load configure file, which contains sections:
+  #   Chiller 
+  #   Pump 
+  #   Humidity 
+  #   Thermocouple 
+
+  strconfigname = 'ChillerConfig.txt'
+  logging.info('Start loading the config file: ' + strconfigname );
+  config = configparser.ConfigParser()
+  config.read( strconfigname )
+
+  for strsec in config.sections():
+    logging.info('Configure: ' + strsec)
+    for key,value in config[strsec]:
+      logging.info('  ' + key + ' '+ value)
+
+
 
   # -------------------- #
   # ------ DEVICE ------ #
@@ -62,7 +92,8 @@ Dictionary of abbreviations: ---------------------------------------------------
   #   - yes: go ahead
   #   - no: abort
   #
-  istDevHdl = clsDevicesHandler()
+
+  istDevHdl = clsDevicesHandler( config )
 
   # leave the possibility to check 
   # the status of a device at any time one wants
@@ -81,16 +112,6 @@ Dictionary of abbreviations: ---------------------------------------------------
   #  ...
 
   istCommand = loadCommands()
-
-  # -------------------- #
-  # ------ CONFIG ------ #
-  # load configure file, which contains:
-  #  - Number of Loops (nLoops): 100
-  #  - High temperature, C (tempHigh): 50
-  #  - Low temperature, C (tempLow): -55
-  #  - Time per loop, minutes (timeEveryLoop): 60
-
-  istConf = loadConfig()
 
   # ------------------ #
   # ------ MAIN ------ #

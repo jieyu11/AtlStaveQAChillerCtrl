@@ -1,0 +1,13 @@
+# read: https://docs.python.org/3.6/library/configparser.html
+[ Chiller ]
+Port = 95
+
+[ Pump ]
+Port = 96
+
+[ Humidity ]
+Port = 97
+
+[ Thermocouple ]
+Port = 98
+
