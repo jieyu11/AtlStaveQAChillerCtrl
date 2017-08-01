@@ -24,6 +24,7 @@ Usage
   * python ChillerCtrl.py
 
   or, specify the version of python:
+
 	* python3.6 ChillerCtrl.py
 
   python version check: python --version
