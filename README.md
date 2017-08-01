@@ -6,10 +6,10 @@ Introduction
 
 Requirements
 	
-	*Software
+	* Software
 	Any OS that supports Python.  Python 3.6.2 or greater interpreter.  200MB for Python and ?KB for ChillerCtrl.py. 
 	
-	*Hardware
+	* Hardware
 	A computer with at least one RS-232 serial port and 4 USB ports.  One USB port is expected to have a USB to RS-485 adapter.
 	The cooling system is composed of: FTS System RC211B0 recirculating cooler; Lenze ESV751N02YXC EMA 4x inverter drive;
 	pump motor PVN56T17V5338B; and Liquiflo H5FSPP4B002606US-8(-60) booster pump.  The coolant used is 3M Novec 7100. 
@@ -21,7 +21,12 @@ Installation
 	
 Usage
 
-	?
+  * python ChillerCtrl.py
+
+  or, specify the version of python:
+	* python3.6 ChillerCtrl.py
+
+  python version check: python --version
 	
 History
 
