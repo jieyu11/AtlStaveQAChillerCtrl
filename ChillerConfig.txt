@@ -1,19 +1,66 @@
+#	Configuration file for ChillerCtrl.py.
 #
-# read: https://docs.python.org/3.6/library/configparser.html
+#  This file conains all the desired configuration settings for the equipment
+#  used in the thermo evaluation of the ATLAS stave quality assurance process.
+#  Each piece of equipment communicates with the controlling computer via a 
+#  serial port, either the RS-232 or USB port(s).  The protocal for these ports
+#  should be set to match the protocal of each equipment.
 #
+#  This file format:
+#  [ name ]          - Name of device the following commands apply.
+#  CMD[=value][#...] - Command for device followed with optional value & comment.
+
+
+#  *** Configuration for SP Scientific RC211B0 recirculating chiller. ***
 [ Chiller ]
-Port = /dev/tty.usbserial-A500
-Baud = 9500
+#    Computer COM1 RS-232 port settings:  9600 baud, 8bit, 1 stop, no parity.
+PORT      =  COM1   #The RS-232 serial port on the computer.
+BAUD      =  9600   #Set the baud rate to match the chiller.
+BITS      =  8      #Set the number of data length. 7 if parity used; 8 if no parity.
+PARITY    =  None   #Set the parity bit to match the chiller.
+STOPBITS  =  1      #Choices 1,1.5,2
 
+#    Set the parameters for the chiller.
+CLRALARM  =  Yes    #Clear all alarms.
+DEGREES   =  0      #0=Celsius, 1=Fahrenheit, 2=Kelvin
+FLUID     =  0      #Define fluid type. 0=user defined.
+FSPANH    =  50     #Define upper limit of fluid temperature limit.
+FSPANL    =  -40    #Define lower limit of fluid temperature limit.
+ALARMH    =  52     #Define alarm overtemp setting.
+ALARML    =  -42    #Define alarm undertemp setting.
+CCT       =  25     #Set Cool Cycle Time.  Obtained by timing pump cool/heat/cool cycle.
+CPB       =  1.0    #Set temperature tolerance below set point.
+HPB       =  1.0    #Set temperature tolerance above set point.
+DB        =  -0.5   #Dead band width.
+DT        =  1.8    #Derivative time constant.
+IT        =  7.5    #Integral time constant.
+
+
+#  *** Configuration for ESV751N02YXC booster pump inverter. ***
 [ Pump ]
-Port = /dev/tty.usbserial-A600
-Baud = 9600
+#    Computer USB port settings:  9600 baud, 8bit, 2 stop, no parity.
+PORT      =  COM10  #USB port connected to inverter.
+BAUD      =  9600   #Set the baud rate to match the inverter.
+BITS      =  8      #Set the number of data bits. 7 or 8
+PARITY    =  None   #Set the parity bit to match the inverter.
+STOPBITS  =  2      #Choices 1 or 2
 
+
+#  *** Configuration for Omega HH314A Humidity meter. ***
 [ Humidity ]
-Port = /dev/tty.usbserial-A700
-Baud = 9700
+#    Computer USB port settings:  9600 baud, 8bit, 1 stop, no parity.
+PORT      =  COM5   #USB port connected to humidity meter.
+BAUD      =  9600   #Set the baud rate to match the meter.
+BITS      =  8      #Set the number of data bits.
+PARITY    =  None   #Set the parity bit to match meter.
+STOPBITS  =  1      #Choice 1
 
+
+#  *** Configuration for Omega HH147U temperature data logger. ***
 [ Thermocouple ]
-Port = /dev/tty.usbserial-A800
-Baud = 9800
-
+#    Computer USB port settings:  9600 baud, 8bit, 1 stop, no parity.
+PORT      =  COM4   #USB port connected to temperature meter.
+BAUD      =  9600   #Set the baud rate to match the meter.
+BITS      =  8      #Set the number of data bits.
+PARITY    =  None   #Set the parity bit to match meter.
+STOPBITS  =  1      #Choice 1
