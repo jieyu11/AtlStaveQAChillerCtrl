@@ -79,7 +79,9 @@ config.read( strconfigname )
 for strsec in config.sections():
   logging.info('Configure: ' + strsec)
   for key in config[strsec]:
-    value = config[strsec][key]
+    valuecomment = config[strsec][key]
+    # assuming comments starting with '#'
+    value = [x for x in valuecomment.split('#')][0].strip()
     logging.info(' - ' + key + ' '+ value)
 
 
