@@ -1,0 +1,66 @@
+#          Command list for ChillerCtrl.py
+#
+#  This file contains the list of commands for the equipment used in the thermo
+#  evaluaion of ATLAS staves.
+#
+#  The commands are grouped according to each device used in the evaluations.
+#  Some commands require a parameter.  The parameter is entered after the command.
+#  Format: du : d #c
+#				d = single letter for specific device. ex: c for chiller, i for inverter
+#           u = user command text.  ex: cSetpoint
+#           d = device specific command for action desired by user command.  ex: SP?
+#           c = comment about what command does.
+
+
+#  *** Commands for the SP Scientific RC211B0 recirculating chiller. ***
+[ Chiller ]
+cStart : START          # Turn on the chiller.
+cStop : STOP            # Turn off the chiller.
+cSetDegrees : DEGREES   # Set the temperature scale. 0=Celsius, 1=Fahrenheith, 2=Kelvin
+cSetpoint : SP?         # Query the temperature setpoint in degrees.
+cSetSetpoint : SP=      # Set the temperature setpoint in degrees.
+cAlarmStat : ALMCODE?   # Values in system alarm table.
+cAlarmClr : CLRALARM    # Clear all the alarm conditions.
+cSetAlarmHi : ALARMH    # Set the alarm oertemp value.
+cSetAlarmLo : ALARML    # Set the alarm undertemp value.
+cCoolCycle : CCT?       # Query the Cool Cycle Time. Units in seconds.
+cSetCoolCycle : CCT=    # Set the Cool Cycle Time. Units in seconds.
+cCoolPropBand : CPB?    # Query the proportioning band about the setpoint in degrees.
+cSetCoolPropBand : CPB= # Set the proportioning band about the setpoint in degrees.
+cDeadBand : DB?         # Query the deadband between heat & cool proportioning bands.
+cSetDeadBand : DB=      # Set the deadband between heat & cool proportioning bands in degrees.
+cHeatPropBand : HPB?    # Query the heat band width about the setpoint.
+cSetHeatPropBand : HPB= # Set the heat band width about the setpoint.
+cDerivTime : DT?        # Query the derivative time constant applied to proportioning band.
+cSetDerivTime : DT=     # Set the derivative time constant applied to proportioning band.
+cIntegTime : IT?        # Query the integral time constant applied to proportioning band.
+cSetIntegTime : IT=     # Set the integral time constant applied to proportioning band.
+cTransRate : RR?        # Query the set poin transition rate in degrees/second.
+cSetTransRate : RR=     # Set the set poin transition rate in degrees/second.
+cPoll : POLL            # A noop command to test communications interface.
+cPumpStat : PUMP?       # Query the status of the circulating pump. 0=off, 1=on
+cRefrigStat : REFRSW?   # Query the status of the refrigeration unit. 0=off, 1=on
+cSetRefrig : REFRSW=    # Set the state of the refrigeration unit.
+cFluid : FLUID?         # Query the defined fluid type. 
+cSetFluidHi : FSPANH    # Set the high temperature limit for fluid type.
+cSetFlluidLo : FSPANL   # Set the low temperature limit for fluid type.
+
+
+#  *** Commands for the booster pump ESV751N02YXC inverter (via ESVZAR0 RS-485 module.) ***
+#   Note the commands are Hex values, not text.  Every command must end with the correct
+#   two byte Cyclic Redundancy Check (CRC) value. 
+[ Pump ]
+iStart : 01060002000829CC  # Start the booster pump.
+iStop : 01060002000429C9   # Stop the booster pump.
+iRPM : 0106002D00xxyyyy    # Set the RPM of the booster pump.  xx=RPM, yyyy=CRC value.
+
+
+#  *** Commands for the Omega HH314A humidity meter. ***
+[ Humidity ]
+hRead : A  # Read humidity sensor.
+
+
+#  *** Commands for the Omega HH147U temperature logger meter. ***
+[ Thermocouple ]
+tRead : ??  # Read the four thermocouple sensors.
+
