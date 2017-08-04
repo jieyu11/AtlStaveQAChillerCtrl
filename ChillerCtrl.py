@@ -36,6 +36,7 @@ import configparser
 import sys
 from datetime import datetime
 from ChillerRdDevices import *
+from ChillerRdConfig import *
 
 # Global data section ----------------------------------------------------------
 
@@ -62,7 +63,6 @@ logging.basicConfig(filename='Log_'+strtime+'.txt', level=logging.DEBUG, \
 logging.info('Python version: ' + strpyversion )
 logging.info('Starting the program.');
 
-
   # -------------------- #
   # ------ CONFIG ------ #
   # load configure file, which contains sections:
@@ -71,20 +71,8 @@ logging.info('Starting the program.');
   #   Humidity 
   #   Thermocouple 
 
-strconfigname = 'ChillerConfig.txt'
-logging.info('Start loading the config file: ' + strconfigname );
-config = configparser.ConfigParser()
-config.read( strconfigname )
-
-for strsec in config.sections():
-  logging.info('Configure: ' + strsec)
-  for key in config[strsec]:
-    valuecomment = config[strsec][key]
-    # assuming comments starting with '#'
-    value = [x for x in valuecomment.split('#')][0].strip()
-    logging.info(' - ' + key + ' '+ value)
-
-
+strconfname = 'ChillerConfig.txt'
+istConf = clsConfig( strconfname )
 
 # -------------------- #
 # ------ DEVICE ------ #
@@ -102,7 +90,7 @@ for strsec in config.sections():
 #   - no: abort
 #
 
-istDevHdl = clsDevicesHandler( config )
+istDevHdl = clsDevicesHandler( istConf )
 
 # leave the possibility to check 
 # the status of a device at any time one wants

@@ -19,6 +19,7 @@ device class to read from / write to USB connected devices:
 import serial
 import time
 import logging
+import ChillerRdConfig
 
 class clsDevice:
   def __init__(self, strname, strport, intbaud):
@@ -78,15 +79,25 @@ class clsDevicesHandler:
     #__istDevices__ = []
     #for strsecname in istConfig.sections(): 
     #  #__istDevices__ += clsDevice(strsecname, istConfig[ strsecname ]['Port'], int( istConfig[ strsecname ]['Baud']) )
-    if 'Chiller' in istConfig:
-      self.__istChiller__ = clsDevice('chiller', istConfig['Chiller']['Port'], int( istConfig['Chiller']['Baud']) )
-    if 'Pump' in istConfig:
-      self.__istBoostPump__ = clsDevide('boostpump', istConfig['Pump']['Port'], int( istConfig['Pump']['Baud']) )
-    if 'Humidity' in istConfig:
-      self.__istHumidity__ = clsDevice('huimidity', istConfig['Humidity']['Port'], int( istConfig['Humidity']['Baud']) )
-    if 'Thermocouple' in istConfig:
-      self.__istThermocouple__ = clsDevice('thermocouple', istConfig['Thermocouple']['Port'], int( istConfig['Thermocouple']['Baud']) )
-    
+    #if 'Chiller' in istConfig:
+    #  self.__istChiller__ = clsDevice('chiller', istConfig['Chiller']['Port'], int( istConfig['Chiller']['Baud']) )
+    #if 'Pump' in istConfig:
+    #  self.__istBoostPump__ = clsDevide('boostpump', istConfig['Pump']['Port'], int( istConfig['Pump']['Baud']) )
+    #if 'Humidity' in istConfig:
+    #  self.__istHumidity__ = clsDevice('huimidity', istConfig['Humidity']['Port'], int( istConfig['Humidity']['Baud']) )
+    #if 'Thermocouple' in istConfig:
+    #  self.__istThermocouple__ = clsDevice('thermocouple', istConfig['Thermocouple']['Port'], int( istConfig['Thermocouple']['Baud']) )
+    ###################
+    ###################
+    if 'Chiller' in istConfig.sections():
+      self.__istChiller__ = clsDevice('chiller', istConfig.get('Chiller', 'Port'), int( istConfig.get('Chiller', 'Baud')) )
+    if 'Pump' in istConfig.sections():
+      self.__istBoostPump__ = clsDevide('boostpump', istConfig.get('Pump', 'Port'), int( istConfig.get('Pump', 'Baud')) )
+    if 'Humidity' in istConfig.sections():
+      self.__istHumidity__ = clsDevice('huimidity', istConfig.get('Humidity', 'Port'), int( istConfig.get('Humidity', 'Baud')) )
+    if 'Thermocouple' in istConfig.sections():
+      self.__istThermocouple__ = clsDevice('thermocouple', istConfig.get('Thermocouple', 'Port'), int( istConfig.get('Thermocouple', 'Baud')) )
+     
 
   ##def loaddevices():
   ##  """

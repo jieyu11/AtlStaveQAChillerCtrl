@@ -21,19 +21,19 @@ PARITY    =  None   #Set the parity bit to match the chiller.
 STOPBITS  =  1      #Choices 1,1.5,2
 
 #    Set the parameters for the chiller.
-CLRALARM  =  Yes    #Clear all alarms.
-DEGREES   =  0      #0=Celsius, 1=Fahrenheit, 2=Kelvin
-FLUID     =  0      #Define fluid type. 0=user defined.
-FSPANH    =  50     #Define upper limit of fluid temperature limit.
-FSPANL    =  -40    #Define lower limit of fluid temperature limit.
-ALARMH    =  52     #Define alarm overtemp setting.
-ALARML    =  -42    #Define alarm undertemp setting.
-CCT       =  25     #Set Cool Cycle Time.  Obtained by timing pump cool/heat/cool cycle.
-CPB       =  1.0    #Set temperature tolerance below set point.
-HPB       =  1.0    #Set temperature tolerance above set point.
-DB        =  -0.5   #Dead band width.
-DT        =  1.8    #Derivative time constant.
-IT        =  7.5    #Integral time constant.
+CLRALARM  =  Yes    # Clear all alarms.
+DEGREES   =  0      # 0=Celsius, 1=Fahrenheit, 2=Kelvin
+FLUID     =  0      # Define fluid type. 0=user defined.
+FSPANH    =  50     # Define upper limit of fluid temperature limit.
+FSPANL    =  -40    # Define lower limit of fluid temperature limit.
+ALARMH    =  52     # Define alarm overtemp setting.
+ALARML    =  -42    # Define alarm undertemp setting.
+CCT       =  25     # Set Cool Cycle Time.  Obtained by timing pump cool/heat/cool cycle.
+CPB       =  1.0    # Set temperature tolerance below set point.
+HPB       =  1.0    # Set temperature tolerance above set point.
+DB        =  -0.5   # Dead band width.
+DT        =  1.8    # Derivative time constant.
+IT        =  7.5    # Integral time constant.
 
 
 #  *** Configuration for ESV751N02YXC booster pump inverter. ***
