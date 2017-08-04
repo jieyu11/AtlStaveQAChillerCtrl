@@ -1,0 +1,147 @@
+   This document is a description of the communications with the equipment 
+for the thermo evaluation of the ATLAS stave.
+
+***** Communications for the SP Scientific RC211B0 recirculating chiller. *****
+   The main device is the SP Scientific RC211B0 recirculating chiller.  The
+communication is all text based.  All commands must end with CRLF. (Carrage 
+return, line feed)  All responses from the chiller end with "!".  If the 
+command is accepted, the chiller responds with OK! or in the case of a 
+parameter command OK plus the command opcode, parameter value, & !.
+
+(Note: x = digit, s = sign(+|-) )
+
+  Command             Response
+START<CRLF>       OK!<CRLF>
+STOP<CRLF>        OK!<CRLF>            
+DEGREES?<CRLF>    OK<CRLF>F016=+00000x.! (0=Celsius, 1=Fahrenheit, 2=Kelvin)
+SP?<CRLF>         OK<CRLF>F057=s00xx.xx!         
+SP=sxxx.xx<CRLF>  OK!<CRLF>
+ALMCODE?<CRLF>    OK<CRLF>F076=+xxxxxx.!   
+CLRALARM<CRLF>    OK!<CRLF>   
+ALARMH?<CRLF>     OK<CRLF>F001=+0xxx.xx!
+ALARML?<CRLF>     OK<CRLF>F002=+0xxx.xx!
+CCT?<CRLF>        OK<CRLF>F006=+000xx.x!
+CCT=xx.x<CRLF>    OK!<CRLF>
+CPB?<CRLF>        OK<CRLF>F010=+000x.xx!
+CPB=x.xx<CRLF>    OK!<CRLF>
+DB?<CRLF>         OK<CRLF>F014=-000x.xx!
+DB=-x.xx<CRLF>    OK!<CRLF>
+HPB?<CRLF>        OK<CRLF>F027=+00xx.xx!
+HPB=x.xx<CRLF>    OK!<CRLF>
+DT?<CRLF>         OK<CRLF>F018=+0000x.x!
+DT=x.x<CRLF>      OK!<CRLF>
+IT?<CRLF>         OK<CRLF>F030=+0000x.x!
+IT=x.x<CRLF>      OK!<CRLF>
+RR?<CRLF>         OK<CRLF>F054=+000x.xx!
+RR=x.x<CRLF>      OK!<CRLF>
+POLL<CRLF>        OK!<CRLF>  
+PUMP?<CRLF>       OK<CRLF>F046=+000255.! (ON) =+000000.! (OFF)
+REFRSW?<CRLF>     OK<CRLF>F051=-000001.! (ON) =+000000.! (OFF)
+REFRSW=x<CRLF>    OK!<CRLF>
+FLUID?<CRLF>      OK<CRLF>F019=+0000xx.!
+FSPANH?<CRLF>     OK<CRLF>F021=s0xxx.xx!
+FSPANL?<CRLF>     OK<CRLF>F022=s0xxx.xx!
+
+   If the chiller receives a command that has some invalid feature that it is
+able to decipher, it will return an error code.  Following the error code is
+the position of the character in the command string that generated the error
+or a set value.  ex: 000005. <- position in command, 000128. <- defined value.
+
+(Note: pos = 000xxx , with x = digit)
+
+ Error code           Explanation
+E001=+pos.!      UART overrun (New incoming overwriting old)
+E002=+pos.!      Parity error (Incorrect parity value.)
+E003=+pos.!      Frame error (Incorrect number of stop bits.)
+E004=+pos.!      Break error (Loss of connection during receipt of command.)
+E005=+pos.!      Line too long (Received string > 128 characters)
+E006=+pos.!      Receive buffer overrun (1KB input buffer full.)
+E007=+pos.!      Line buffer overrun (Inputs received faster than can be processed.)
+E008=+pos.!      Break error. (See EE004)
+
+E010=+pos.!      Transmit buffer overflow (Burst of queries overflow of output buffer.)
+E011=+pos.!      Parse buffer overflow (Too many commands (>32) on a single line.)
+E020=+pos.!      Undefined string (String not identified as valid command.)
+E021=+pos.!      Illegal character (Allowed: A-Z,a-z,0-9, =?.+-, <SP>,<LF>,<CR>)
+E022=+pos.!      Illegal operand 
+E023=+pos.!      Question mark followed by argument
+E024=+pos.!      Value to long (valne must be <= 8 characters.)
+E025=+pos.!      Illegal sign placement or excess decimal points
+E026=+pos.!      Too many decimal places (Too many digits to right of decimal point.)
+E027=+pos.!      Value out of bounds (Value exceeds limits of function.)
+E028=+pos.!      Excessive number (Traps conditions that would create math errors.)
+	         
+E030=+000128.!   Unit not in remote
+E031=+pos.!      Not a user function (Attempt to program a reserved register.)
+	         
+E040=+pos.!      Not yet implemented (Used a command not yet implemented.)
+E041=+000128.!   Stop error (System already stopped received a STOP command.)
+E042=+000128.!   Start error (System already started received a START command.)
+E043=+pos.!      Not a user function (Tried to use a factory reserved function.)
+E044=+pos.!      Local lockout (Unit is locked in local mode.)
+
+
+****** Commands for the booster pump ESV751N02YXC inverter ******
+   All the communications with the booster pump inverter are HEXADECIMAL values.
+The commands require the correct two byte Cyclic Redundancy Check (CRC) value 
+appended at the end of the Hex command.  If the command was accepted the inverter
+will respond with a repeat of the address, opcode(read or write), plus specific
+data and end with a two byte CRC.  All reads are opcode 0x03, all write are 
+opcode 0x06.  Address of inverter is 0x01.
+
+   In order to write to registers one must clear the locks in register #1.  The
+method to unlock the drive control and parameter controls is to write specific
+values to registers #48 & #49.  After the locks are clear one can start, stop,
+set RPM values.  One can read registers without clearing the locks.
+
+(Note: x = hex digit, rrrr = RPM value*10 (max = 0x445C), yyyy = CRC value)
+
+  Command             Response
+010600310000D805   010600310000D805  (Unlock the drive control)
+0106003200002805   0106003200002805  (Unlock the parameters control)
+01060002000829CC   01060002000829CC  (Start the booster pump)
+01060002000429C9   01060002000429C9  (Stop the booster pump)
+0106002Drrrryyyy   0106002Drrrryyyy  (Set the RPM of the booster pump)
+010600020002A9CB   01060002xxxxyyyy  (lock drive control)
+010300170001340E   010302xxxxyyyy    (Drive status)
+010300190001EE58   010302xxxxyyyy    (Actual RPM)
+
+   If the inverter receives a invalid command that it is able to decipher, it 
+will return an error code.  
+
+(Note: xx = error code, yyyy = CRC value)
+
+0183xxyyyy  Read error
+0186xxyyyy  Write error  
+
+XX = 01 (Command rejected; illegal function) 
+     02 (Invalid register number)
+     03 (Data value is out-of-range)
+     04 (Wrong data format)
+     06 (Slave device busy)
+
+
+****** Commands for the Omega HH314A humidity meter. ******
+   Communications with the HH314A meter is a mix of text & hexadecimal.  The 
+commands are a single text character.  (No CRLF)  The response is in 
+hexadecimal.  The only interesting command is the read sensors.  The response
+is a 10 byte hexadecimal value.  The 1st byte is the start of data string and
+is always 0x02.  The humidity value is bytes 4 & 5.  Splice the two bytes to 
+make a 16bit word, convert to decimal & divide by 10 for the humidity value.  
+The internal thermocouple (T1) is bytes 6 & 7.  Same operation as for humidity
+to get the temperature.  The optional external thermocouple (T2) value is found
+in bytes 8 & 9.  Again same math operations to get the value.  The 10th byte is
+the end of end of message byte and is always 0x03.
+
+ Command      Response
+   A         02 xx xx Hh hh Tt tt Tt tt 03
+   
+where xx = byte hex value
+      Hh = high byte of humidity value
+      hh = low  byte of humidity value
+      Tt = high byte of temperature value
+      tt = low  byte of temperature value
+
+****** Commands for the Omega HH147U temperature logger meter. ******
+   Communications with the HH147U have yet to be determined.
+
