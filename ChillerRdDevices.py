@@ -9,12 +9,18 @@ device class to read from / write to USB connected devices:
 # function __init__: 
 #   initialize the class device
 #   should include Configure Instance as input???
-# function read:
-#   read information from the device
-# function write:
+# function read( strcmdname ):
+#   provide the command name
+#   return information from the device
+# function write( strcmdname ):
+#   provide the command name
 #   write to device if necessary
 #   e.g. change Chiller setup temperature
-
+# function getdevice( strdevname ):
+#   provide device name
+#   return the device instance
+#
+#
 # need to install it: pip3.6 install pyserial
 import serial
 import time
@@ -30,18 +36,18 @@ class clsDevice:
     # for example: serial.Serial("/dev/tty.usbserial-A400DUTI", 9600)
     self.bolstatus = True # need to check the device status first
     self.strname = strname
-    logging.info( 'Loading ' + strname + ' at port ' + strport + ' baudrate at {:6d}'.format( intbaud ) );
+    logging.info( 'Loading {:20s}'.format( strname ) + \
+                  ' at port {:6s}'.format( strport ) + \
+                  ' baudrate at {:6d}'.format( intbaud ) );
 
-  def getname(self):
-    return self.strname
-
-  def read(self):
+  def read(self, strcmdname):
     """
       function of reading device data
     """
-    # tmp: return a random number
-    return random.random();
 
+    logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+    ###return random.random();
+    # TODO: read the devices' outputs!
     ##strline = __pdev.readline()
     ##try:
     ##  chrfirst = strline[0]
@@ -49,20 +55,15 @@ class clsDevice:
     ##  break
     ##else:
     ##  if chrfirst == '@':  # begins a new sensor record
-    ##    self.bolstatus = True
-    ##  elif chrfirst == '$':
-    ##    self.bolstatus = False
-    ##  else:
-    ##    print("Unexpected character at the start of the line:\n{}".format(line))
     ##  time.sleep(2)
     ##return strline
 
-  def write(self):
+  def write(self, strcmdname):
     """
       function of writing to device
     """
     # format: https://pyformat.info/
-    logging.info( strname + ' {:6.2f}'.format( self.read() ) );
+    logging.info( ' WRITING: Sending command ' + strcmdname + ' to device ' + self.strname )
 
 class clsDevicesHandler:
   def __init__(self, istConfig):
@@ -73,34 +74,40 @@ class clsDevicesHandler:
     """ 
     # private configuration instance
     self.__istConfig = istConfig
-    # should check all the devices' status right after they are loaded
-    # can the names of the devices be read out from the configuration as well?
-    # OR let the configuration tell what are the devices needs to be loaded 
-    #__istDevices__ = []
-    #for strsecname in istConfig.sections(): 
-    #  #__istDevices__ += clsDevice(strsecname, istConfig[ strsecname ]['Port'], int( istConfig[ strsecname ]['Baud']) )
-    #if 'Chiller' in istConfig:
-    #  self.__istChiller__ = clsDevice('chiller', istConfig['Chiller']['Port'], int( istConfig['Chiller']['Baud']) )
-    #if 'Pump' in istConfig:
-    #  self.__istBoostPump__ = clsDevide('boostpump', istConfig['Pump']['Port'], int( istConfig['Pump']['Baud']) )
-    #if 'Humidity' in istConfig:
-    #  self.__istHumidity__ = clsDevice('huimidity', istConfig['Humidity']['Port'], int( istConfig['Humidity']['Baud']) )
-    #if 'Thermocouple' in istConfig:
-    #  self.__istThermocouple__ = clsDevice('thermocouple', istConfig['Thermocouple']['Port'], int( istConfig['Thermocouple']['Baud']) )
-    ###################
-    ###################
-    if 'Chiller' in istConfig.sections():
-      self.__istChiller__ = clsDevice('chiller', istConfig.get('Chiller', 'Port'), int( istConfig.get('Chiller', 'Baud')) )
-    if 'Pump' in istConfig.sections():
-      self.__istBoostPump__ = clsDevide('boostpump', istConfig.get('Pump', 'Port'), int( istConfig.get('Pump', 'Baud')) )
-    if 'Humidity' in istConfig.sections():
-      self.__istHumidity__ = clsDevice('huimidity', istConfig.get('Humidity', 'Port'), int( istConfig.get('Humidity', 'Baud')) )
-    if 'Thermocouple' in istConfig.sections():
-      self.__istThermocouple__ = clsDevice('thermocouple', istConfig.get('Thermocouple', 'Port'), int( istConfig.get('Thermocouple', 'Baud')) )
-     
 
-  ##def loaddevices():
-  ##  """
-  ##    function of loading all devices used in the measurement
-  ##  """
+    # use a dictionary to keep the instances of devices
+    self.__dictDevices = {}
+    for strdevname in istConfig.sections() : 
+      # a device should have a connected port (lower case!)
+      # otherwise skip the section, not device
+      if 'port' not in istConfig.keys( strdevname ) :
+        continue
+      self.__dictDevices[ strdevname ] = clsDevice(strdevname, istConfig.get(strdevname, 'Port'), int( istConfig.get(strdevname, 'Baud')) )
 
+  def readdevice(self, strdevname, strcmdname) :
+    """
+      function to read from one of the devices through device name
+      and command name
+    """
+    self.__dictDevices[ strdevname ].read( strcmdname )
+
+  def writedevice(self, strdevname, strcmdname) :
+    """
+      function to write to one of the devices through device name
+      and command name
+    """
+    self.__dictDevices[ strdevname ].write( strcmdname )
+
+  def getdevice(self, strdevname) :
+    """
+      function to get the instance of the device by providing
+      device's name
+    """
+    if strdevname in self.__dictDevices :
+      return self.__dictDevices[ strdevname ]
+    else :
+      logging.error( 'Device name ' + strdevname + ' not found. ' );
+      logging.error( '    The possible devices names are: ' );
+      for key in self.__dictDevices : 
+        logging.error( '     ' + key );
+      return None

@@ -7,12 +7,15 @@
 #  should be set to match the protocal of each equipment.
 #
 #  This file format:
-#  [ name ]          - Name of device the following commands apply.
+#  [name]     - Name of device the following commands apply.
+#             - SAME name should be used in this config and other config files.
+#             -   Whitespace is considered as part of the name
+#             -   to be consistent no whitespace should be used in section names!
 #  CMD[=value][#...] - Command for device followed with optional value & comment.
 
 
 #  *** Configuration for SP Scientific RC211B0 recirculating chiller. ***
-[ Chiller ]
+[Chiller]
 #    Computer COM1 RS-232 port settings:  9600 baud, 8bit, 1 stop, no parity.
 PORT      =  COM1   #The RS-232 serial port on the computer.
 BAUD      =  9600   #Set the baud rate to match the chiller.
@@ -37,7 +40,7 @@ IT        =  7.5    # Integral time constant.
 
 
 #  *** Configuration for ESV751N02YXC booster pump inverter. ***
-[ Pump ]
+[Pump]
 #    Computer USB port settings:  9600 baud, 8bit, 2 stop, no parity.
 PORT      =  COM10  #USB port connected to inverter.
 BAUD      =  9600   #Set the baud rate to match the inverter.
@@ -47,7 +50,7 @@ STOPBITS  =  2      #Choices 1 or 2
 
 
 #  *** Configuration for Omega HH314A Humidity meter. ***
-[ Humidity ]
+[Humidity]
 #    Computer USB port settings:  9600 baud, 8bit, 1 stop, no parity.
 PORT      =  COM5   #USB port connected to humidity meter.
 BAUD      =  9600   #Set the baud rate to match the meter.
@@ -57,7 +60,7 @@ STOPBITS  =  1      #Choice 1
 
 
 #  *** Configuration for Omega HH147U temperature data logger. ***
-[ Thermocouple ]
+[Thermocouple]
 #    Computer USB port settings:  9600 baud, 8bit, 1 stop, no parity.
 PORT      =  COM4   #USB port connected to temperature meter.
 BAUD      =  9600   #Set the baud rate to match the meter.

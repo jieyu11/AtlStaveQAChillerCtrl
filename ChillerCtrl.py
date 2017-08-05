@@ -37,10 +37,13 @@ import sys
 from datetime import datetime
 from ChillerRdDevices import *
 from ChillerRdConfig import *
+from ChillerRdCmd import *
 
 # Global data section ----------------------------------------------------------
 
 strpyversion = "3.6"; # differ from system python version
+strconfname = 'ChillerConfig.txt'
+strcmdname = 'ChillerEquipmentCommands.txt'
  
 # Module data section ----------------------------------------------------------
 
@@ -48,13 +51,8 @@ strpyversion = "3.6"; # differ from system python version
 
 # Main code section ------------------------------------------------------------
 
-  # ----------------- #
-  # ------ LOG ------ #
-  # open a log file to save basic information: 
-  #  - Date: 
-  #  - Version of code: 
-  #  - Stave ID: 
-
+# ------------------------------------------------------------------------------
+# ------------------------------- LOG ------------------------------------------
 strtime = datetime.now().strftime('%Y-%m-%d_%Hh%Mm%Ss')
 logging.basicConfig(filename='Log_'+strtime+'.txt', level=logging.DEBUG, \
                     format='%(asctime)s %(levelname)s: %(message)s', \
@@ -63,76 +61,28 @@ logging.basicConfig(filename='Log_'+strtime+'.txt', level=logging.DEBUG, \
 logging.info('Python version: ' + strpyversion )
 logging.info('Starting the program.');
 
-  # -------------------- #
-  # ------ CONFIG ------ #
-  # load configure file, which contains sections:
-  #   Chiller 
-  #   Pump 
-  #   Humidity 
-  #   Thermocouple 
+# ------------------------------------------------------------------------------
+# ------------------------------- CONFIG ---------------------------------------
 
-strconfname = 'ChillerConfig.txt'
 istConf = clsConfig( strconfname )
 
-# -------------------- #
-# ------ DEVICE ------ #
-# load devices with USB connection
-#  - Chiller
-#  - Boost Pump
-#  - Thermocouple
-#  - Humidity
-#  - IR camera
-#
-# print the status of all devices
-# if one of them is not OK, return error 
-# ask if we can ignore this devices,
-#   - yes: go ahead
-#   - no: abort
-#
+# ------------------------------------------------------------------------------
+# ------------------------------- DEVICES --------------------------------------
 
 istDevHdl = clsDevicesHandler( istConf )
 
-# leave the possibility to check 
-# the status of a device at any time one wants
-##### bolStatus = istDevHdl.devicesStatus( "chiller" )
-##### if bolStatus is not True:
-#####   if igore is not True: 
-#####     istDevHdl.abort("chiller")
+# ------------------------------------------------------------------------------
+# ------------------------------ COMMANDS --------------------------------------
+istCommand = clsCommands( strcmdname )
+strdevname, strcmdname = istCommand.getdevicecommand( 'cStart' )
 
-# ---------------------- #
-# ------ COMMANDS ------ #
-# load commands file, which contains:
-# (need to look up manuals.)
-#  - chiller_temperature: TEMP
-#  - chiller_liquid_level: LIQUID
-#  - boostpump_pressure: PREP
-#  ...
 
-##### istCommand = loadCommands()
+# ------------------------------------------------------------------------------
+# ---------------------------- MAIN ROUTINE ------------------------------------
+logging.info(' - OK, now perform command ' + strcmdname + ' on ' + strdevname )
+istDevHdl.readdevice( strdevname, strcmdname )
+istDevHdl.writedevice( strdevname, strcmdname )
 
-# ------------------ #
-# ------ MAIN ------ #
-# main function to run the experiment
-#   - start devices: BP, chiller, etc.
-#   - check status in every second
-#   - change chiller setup temperature in every loop
-
-##### istCommand.start()
-##### for i in range(0,nLoops):
-#####   time=0
-#####   for time in every_second:
-#####     bolStatus = deviceStatus("chiller") # or other devices
-#####     if bolStatus is not True:
-#####       abort()
-##### 
-##### # need to think more carefully how this working loop should be written !!!
-##### # place holder for now!
-#####     recordLog()
-#####     if time is timeEveryLoop / 2:
-#####       setChillerTemperature(tempHigh);
-#####     if time is timeEveryLoop:
-#####       setChillerTemperature(tempLow);
-#####       break
 
 
 # Upon startup print on computer screen this code version.

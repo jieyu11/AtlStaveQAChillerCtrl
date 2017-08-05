@@ -5,7 +5,15 @@ reading configuration file
 #   initialize the class clsConfig
 #   using config file name
 # function get( strsection, strkey )
-#   read the value by providing the section name and key name
+#   provide the section (device) name and key name
+#   return the value in string
+#
+# function sections():
+#   return the list of the section (devices) names
+#
+# function keys(strsection):
+#   provide the section (device) name
+#   return the list of keys for this section (device)
 #
 
 import configparser
@@ -35,6 +43,8 @@ class clsConfig:
         self.__config.set(strsection, strkey, strval)
         logging.info(' - ' + strkey + ' '+ strval)
 
+    logging.info( ' ---- ---- ---- ---- ');
+
 
   def get(self, strsection, strkey):
     """
@@ -61,5 +71,5 @@ class clsConfig:
     if strsection not in self.__config.sections():
       logging.error(' - ' + strsection + ' not found in config file: ' + self.strname )
       return []
-    return list( self.__config[sections].keys() )
+    return list( self.__config[ strsection ].keys() )
  
