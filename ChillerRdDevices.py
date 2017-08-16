@@ -28,17 +28,28 @@ import logging
 import ChillerRdConfig
 
 class clsDevice:
-  def __init__(self, strname, strport, intbaud):
+  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None):
     """
       function of initialization
     """
-    ########self.__pdev = serial.Serial( strport, intbaud) 
-    # for example: serial.Serial("/dev/tty.usbserial-A400DUTI", 9600)
-    self.bolstatus = True # need to check the device status first
+    print (' NAME ' + strname + ' PORT ' + strport + ' baud ' + str(intbaud) )
+
+    self.bolstatus = True
+    if str('Humidity') == strname:
+      print ( ' loading Humidity ' )
+      self.__pdev = serial.Serial( strport, intbaud) 
+      self.__pdev.bytesize = bytesize
+      self.__pdev.parity = parity
+      self.__pdev.stopbits = stopbits
+      self.__pdev.timeout = timeout
+      # self.__pdev.open()
+      self.bolstatus = self.__pdev.is_open # need to check the device status first
+
     self.strname = strname
     logging.info( 'Loading {:20s}'.format( strname ) + \
                   ' at port {:6s}'.format( strport ) + \
-                  ' baudrate at {:6d}'.format( intbaud ) );
+                  ' baudrate at {:6d}'.format( intbaud ) + \
+                  ' status {:b}'.format( self.bolstatus) );
 
   def read(self, strcmdname):
     """
@@ -46,17 +57,24 @@ class clsDevice:
     """
 
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
-    ###return random.random();
-    # TODO: read the devices' outputs!
-    ##strline = __pdev.readline()
-    ##try:
-    ##  chrfirst = strline[0]
-    ##except IndexError:  # got no data from sensor
-    ##  break
-    ##else:
-    ##  if chrfirst == '@':  # begins a new sensor record
-    ##  time.sleep(2)
-    ##return strline
+
+    if str('Humidity') == self.strname:
+
+      # TODO: here should test if the device is connected already!!!
+
+      self.__pdev.write( (strcmdname + '\r\n').encode() )
+      #strline = self.__pdev.readline()
+      byteline = self.__pdev.read(10)
+      #print ( '   get output type: ' + type(strline)  )
+      print (type(byteline))
+      #strline = byteline.decode(encoding='UTF-8')
+      #strline = byteline.decode(encoding='windows-1252')
+      #strline = "".join(map(chr, byteline))
+      strline = byteline.hex()
+      logging.info( '   get output in hex: ' + strline  )
+
+      # TODO: need to return the value obtained.
+
 
   def write(self, strcmdname):
     """

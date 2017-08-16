@@ -74,7 +74,8 @@ istDevHdl = clsDevicesHandler( istConf )
 # ------------------------------------------------------------------------------
 # ------------------------------ COMMANDS --------------------------------------
 istCommand = clsCommands( strcmdname )
-strdevname, strcmdname = istCommand.getdevicecommand( 'cStart' )
+#strdevname, strcmdname = istCommand.getdevicecommand( 'cStart' )
+strdevname, strcmdname = istCommand.getdevicecommand( 'hRead' )
 
 
 # ------------------------------------------------------------------------------
