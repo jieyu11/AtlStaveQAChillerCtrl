@@ -59,7 +59,6 @@ class clsDevice:
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
 
     if str('Humidity') == self.strname:
-
       # TODO: here should test if the device is connected already!!!
 
       self.__pdev.write( (strcmdname + '\r\n').encode() )
@@ -67,7 +66,8 @@ class clsDevice:
       byteline = self.__pdev.read(10)
       strline = byteline.hex()
       humval = int(strline[6:10], 16) / 10
-      logging.info( ' READING ' + self.strname + ' humidity: {:4.1f}'.format( humval )  )
+      logging.info( ' READING current ' + self.strname + ' value: {:4.1f}%'.format( humval )  )
+      # TODO: do I need to return the value??
       #return humval
 
   def write(self, strcmdname):
