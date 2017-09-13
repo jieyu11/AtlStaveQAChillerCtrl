@@ -63,18 +63,12 @@ class clsDevice:
       # TODO: here should test if the device is connected already!!!
 
       self.__pdev.write( (strcmdname + '\r\n').encode() )
-      #strline = self.__pdev.readline()
+      # read 10 bits
       byteline = self.__pdev.read(10)
-      #print ( '   get output type: ' + type(strline)  )
-      print (type(byteline))
-      #strline = byteline.decode(encoding='UTF-8')
-      #strline = byteline.decode(encoding='windows-1252')
-      #strline = "".join(map(chr, byteline))
       strline = byteline.hex()
-      logging.info( '   get output in hex: ' + strline  )
-
-      # TODO: need to return the value obtained.
-
+      humval = int(strline[6:10], 16) / 10
+      logging.info( ' READING ' + self.strname + ' humidity: {:4.1f}'.format( humval )  )
+      #return humval
 
   def write(self, strcmdname):
     """
