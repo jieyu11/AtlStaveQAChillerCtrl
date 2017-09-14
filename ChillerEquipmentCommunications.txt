@@ -2,11 +2,14 @@
 for the thermo evaluation of the ATLAS stave.
 
 ***** Communications for the SP Scientific RC211B0 recirculating chiller. *****
-   The main device is the SP Scientific RC211B0 recirculating chiller.  The
-communication is all text based.  All commands must end with CRLF. (Carrage 
-return, line feed)  All responses from the chiller end with "!".  If the 
-command is accepted, the chiller responds with OK! or in the case of a 
-parameter command OK plus the command opcode, parameter value, & !.
+   The controlling computer's RS-232 serial port (COM1) is connected to the
+RS-232 port on the chiller.  The communication protocol for this serial line is:
+9600 baud, 8 data bits, 1 stop bit, no parity, no flow control.
+The messages to & from the chiller are all text based.  All commands must end 
+with CRLF. (Carrage return, line feed)  All responses from the chiller end 
+with "!".  If the POLL command is accepted, the chiller responds with "OK!"
+The response for other commands is OK followed with the current value for the
+command and ending with "!".
 
 (Note: x = digit, s = sign(+|-) )
 
@@ -45,7 +48,7 @@ FSPANL?<CRLF>     OK<CRLF>F022=s0xxx.xx!
    If the chiller receives a command that has some invalid feature that it is
 able to decipher, it will return an error code.  Following the error code is
 the position of the character in the command string that generated the error
-or a set value.  ex: 000005. <- position in command, 000128. <- defined value.
+or a set value.  ex: E005=000003.! 3rd digit is source of error.
 
 (Note: pos = 000xxx , with x = digit)
 
@@ -82,27 +85,31 @@ E044=+pos.!      Local lockout (Unit is locked in local mode.)
 
 
 ****** Commands for the booster pump ESV751N02YXC inverter ******
+	The communications for the booster pump inverter (controller) is accomplished
+using a USB serial port (COM10) with a USB to RS-485 converter box.  The RS-485 
+protocol requires an address for the slave device (i.e. the inverter).  The 
+default address is 1 and we shall continue with that address.  The protocol is:
+9600 baud, 8 data bits, 1 stop bit, no parity, no flow control.
    All the communications with the booster pump inverter are HEXADECIMAL values.
 The commands require the correct two byte Cyclic Redundancy Check (CRC) value 
 appended at the end of the Hex command.  If the command was accepted the inverter
 will respond with a repeat of the address, opcode(read or write), plus specific
-data and end with a two byte CRC.  All reads are opcode 0x03, all write are 
-opcode 0x06.  Address of inverter is 0x01.
-
+data and end with a two byte CRC.  All reads are opcode 0x03. All writes are 
+opcode 0x06.
    In order to write to registers one must clear the locks in register #1.  The
 method to unlock the drive control and parameter controls is to write specific
-values to registers #48 & #49.  After the locks are clear one can start, stop,
-set RPM values.  One can read registers without clearing the locks.
+values to registers #48 (0x30) & #49 (0x31).  After the locks are clear one can 
+start, stop, set RPM values.  One can read registers without clearing the locks.
 
 (Note: x = hex digit, rrrr = RPM value*10 (max = 0x445C), yyyy = CRC value)
 
   Command             Response
-010600310000D805   010600310000D805  (Unlock the drive control)
-0106003200002805   0106003200002805  (Unlock the parameters control)
-01060002000829CC   01060002000829CC  (Start the booster pump)
-01060002000429C9   01060002000429C9  (Stop the booster pump)
-0106002Drrrryyyy   0106002Drrrryyyy  (Set the RPM of the booster pump)
-010600020002A9CB   01060002xxxxyyyy  (lock drive control)
+01060030000089C5   01060030000089C5  (Unlock the drive control)
+010600310000D805   010600310000D805  (Unlock the parameters control)
+010600010008D9CC   010600010008D9CC  (Start the booster pump)
+010600010004D9C9   010600010004D9C9  (Stop the booster pump)
+0106002Crrrryyyy   0106002Crrrryyyy  (Set the RPM of the booster pump)
+01060001000259CB   01060001000259CB  (lock drive control)
 010300170001340E   010302xxxxyyyy    (Drive status)
 010300190001EE58   010302xxxxyyyy    (Actual RPM)
 
@@ -122,16 +129,18 @@ XX = 01 (Command rejected; illegal function)
 
 
 ****** Commands for the Omega HH314A humidity meter. ******
-   Communications with the HH314A meter is a mix of text & hexadecimal.  The 
-commands are a single text character.  (No CRLF)  The response is in 
-hexadecimal.  The only interesting command is the read sensors.  The response
-is a 10 byte hexadecimal value.  The 1st byte is the start of data string and
-is always 0x02.  The humidity value is bytes 4 & 5.  Splice the two bytes to 
-make a 16bit word, convert to decimal & divide by 10 for the humidity value.  
-The internal thermocouple (T1) is bytes 6 & 7.  Same operation as for humidity
-to get the temperature.  The optional external thermocouple (T2) value is found
-in bytes 8 & 9.  Again same math operations to get the value.  The 10th byte is
-the end of end of message byte and is always 0x03.
+   USB serial port (COM5) is connected to the meter using the special 
+communication cable that came with the meter.  The protocol is:
+9600 baud, 8 data bits, 1 stop bit, no parity, no flow control.  The 
+messges are a mix of text & hexadecimal.  The commands are a single text 
+character with no CRLF.  The response is in hexadecimal.  The only interesting
+command is the read sensors.  The response is a 10 byte hexadecimal value.  
+The 1st byte of the response message is always 0x02.  The humidity value is
+bytes 4 & 5.  Splice the two bytes together to make a 16bit word, convert to 
+decimal value & divide by 10 for the humidity value.  The internal thermocouple
+(T1) is bytes 6 & 7, the optional external thermocouple (T2) is bytes 8 & 9.
+Convert the temperature hexadecimal values with the same operation as for humidity
+value.  The 10th byte is the end of end of message byte and is always 0x03.
 
  Command      Response
    A         02 xx xx Hh hh Tt tt Tt tt 03
@@ -143,5 +152,37 @@ where xx = byte hex value
       tt = low  byte of temperature value
 
 ****** Commands for the Omega HH147U temperature logger meter. ******
-   Communications with the HH147U have yet to be determined.
+   USB port (COM4) is connected to the meter using the special communication 
+cable that came with the meter. Communications with the HH147U meter is all 
+hexadecimal.  The only command known at this time to work responds with 30 lines
+of data.  The transmission of all 30 lines takes about 30 seconds. The first 
+line has info on the status of the meter settings.  The following 29 lines 
+contain the same data plus the readings of the the 4 thermocouples.  All lines
+begin with the hex value of "AA" and end with the hex value of "AB".  
+The thermocouple values are the decimal value of the readings.  The order of 
+the digits is not linear.  The order is: 2nd,3rd, 1st, 00, 4th,5th.  The 1st, 
+2nd, 3rd order values are spliced together and divided by 10 and then splice the
+4th & 5th digits to obtain the temperature value.  The first thermocouple T1 
+starts at byte position 9.  Each temperture reading uses 4 bytes.  Thus T1 
+values are at positions 9-12, T2 values at 13-16, T3 values at 17-20, and 
+T4 at 21-24.
 
+ Command     
+   AAB40110AB
+
+ Response
+   AA B2 80 00 00 76 01 00 AB
+   AA B1 80 00 00 76 01 00 13 02 00 07 12 02 00 21 11 02 00 09 66 02 00 43 AB
+	    :
+		 :  
+	    :
+   AA B1 80 00 00 76 01 00 13 02 00 07 12 02 00 21 11 02 00 09 66 02 00 43 AB  (<-30th line)
+	
+Using the last line above, the temperatures are (in order T1..T4 )
+                              T1            T2            T3            T4
+AA B1 80 00 00 76 01 00 (13 02 00 07) (12 02 00 21) (11 02 00 09) (66 02 00 43) AB
+So for T1 (13 02 00 07), swap 13 02 to 0213, divide by 10 = 21.3, splice 07 to the
+end of 21.3 for final temperature value = 21.307.  Apply same operations to T2-T4:
+	T2 = 12 02 00 21, => 212 => 21.2 => 21.221
+	T3 = 11 02 00 09, => 211 => 21.1 => 21.109
+	T4 = 66 02 00 43, => 266 => 26.6 => 26.643

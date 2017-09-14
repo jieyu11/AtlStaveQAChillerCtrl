@@ -10,69 +10,60 @@
 #          - SAME name should be used in this config and other config files.
 #          -   Whitespace is considered as part of the name
 #          -   to be consistent no whitespace should be used in section names!
-#  Format: du : d #c
-#				d = single letter for specific device. ex: c for chiller, i for inverter
-#           u = user command text.  ex: cSetpoint
+#  Format: u : d #c
+#           u = user command text.  ex: Setpoint
 #           d = device specific command for action desired by user command.  ex: SP?
 #           c = comment about what command does.
 
-# *** short name for each device facilitating fetching devices commands ***
-# *** user type: cStop, meaning Stop under Chiller section              ***
-[ShortName]
-c : Chiller
-i : Pump
-h : Humidity
-t : Thermocouple 
-
 #  *** Commands for the SP Scientific RC211B0 recirculating chiller. ***
 [Chiller] 
-Start : START          # Turn on the chiller.
-Stop : STOP            # Turn off the chiller.
+StartChiller : START   # Turn on the chiller.
+StopChiller : STOP     # Turn off the chiller.
 SetDegrees : DEGREES   # Set the temperature scale. 0=Celsius, 1=Fahrenheith, 2=Kelvin
-Setpoint : SP?         # Query the temperature setpoint in degrees.
-SetSetpoint : SP=      # Set the temperature setpoint in degrees.
-AlarmStat : ALMCODE?   # Values in system alarm table.
+Setpoint? : SP?        # Query the temperature setpoint in degrees.
+ChangeSetpoint : SP=   # Set the temperature setpoint in degrees.
+AlarmStat? : ALMCODE?  # Values in system alarm table.
 AlarmClr : CLRALARM    # Clear all the alarm conditions.
 SetAlarmHi : ALARMH    # Set the alarm oertemp value.
 SetAlarmLo : ALARML    # Set the alarm undertemp value.
-CoolCycle : CCT?       # Query the Cool Cycle Time. Units in seconds.
+CoolCycle? : CCT?      # Query the Cool Cycle Time. Units in seconds.
 SetCoolCycle : CCT=    # Set the Cool Cycle Time. Units in seconds.
-CoolPropBand : CPB?    # Query the proportioning band about the setpoint in degrees.
+CoolPropBand? : CPB?   # Query the proportioning band about the setpoint in degrees.
 SetCoolPropBand : CPB= # Set the proportioning band about the setpoint in degrees.
-DeadBand : DB?         # Query the deadband between heat & cool proportioning bands.
+DeadBand? : DB?        # Query the deadband between heat & cool proportioning bands.
 SetDeadBand : DB=      # Set the deadband between heat & cool proportioning bands in degrees.
-HeatPropBand : HPB?    # Query the heat band width about the setpoint.
+HeatPropBand? : HPB?   # Query the heat band width about the setpoint.
 SetHeatPropBand : HPB= # Set the heat band width about the setpoint.
-DerivTime : DT?        # Query the derivative time constant applied to proportioning band.
+DerivTime? : DT?       # Query the derivative time constant applied to proportioning band.
 SetDerivTime : DT=     # Set the derivative time constant applied to proportioning band.
-IntegTime : IT?        # Query the integral time constant applied to proportioning band.
+IntegTime? : IT?       # Query the integral time constant applied to proportioning band.
 SetIntegTime : IT=     # Set the integral time constant applied to proportioning band.
-TransRate : RR?        # Query the set poin transition rate in degrees/second.
+TransRate? : RR?       # Query the set poin transition rate in degrees/second.
 SetTransRate : RR=     # Set the set poin transition rate in degrees/second.
 Poll : POLL            # A noop command to test communications interface.
-PumpStat : PUMP?       # Query the status of the circulating pump. 0=off, 1=on
-RefrigStat : REFRSW?   # Query the status of the refrigeration unit. 0=off, 1=on
+PumpStat? : PUMP?      # Query the status of the circulating pump. 0=off, 1=on
+RefrigStat? : REFRSW?  # Query the status of the refrigeration unit. 0=off, 1=on
 SetRefrig : REFRSW=    # Set the state of the refrigeration unit.
-Fluid : FLUID?         # Query the defined fluid type. 
+Fluid? : FLUID?        # Query the defined fluid type. 
 SetFluidHi : FSPANH    # Set the high temperature limit for fluid type.
-SetFlluidLo : FSPANL   # Set the low temperature limit for fluid type.
+SetFluidLo : FSPANL    # Set the low temperature limit for fluid type.
 
 
 #  *** Commands for the booster pump ESV751N02YXC inverter (via ESVZAR0 RS-485 module.) ***
 #   Note the commands are Hex values, not text.  Every command must end with the correct
 #   two byte Cyclic Redundancy Check (CRC) value. 
 [Pump]
-Start : 01060002000829CC  # Start the booster pump.
-Stop : 01060002000429C9   # Stop the booster pump.
-RPM : 0106002D00xxyyyy    # Set the RPM of the booster pump.  xx=RPM, yyyy=CRC value.
+StartPump : 01060002000829CC  # Start the booster pump.
+StopPump : 01060002000429C9   # Stop the booster pump.
+RPM : 0106002D00xxyyyy        # Set the RPM of the booster pump.  xx=RPM, yyyy=CRC value.
 
 
 #  *** Commands for the Omega HH314A humidity meter. ***
 [Humidity]
-Read : A  # Read humidity sensor.
+ReadHumid : A  # Read humidity sensor.
 
 
 #  *** Commands for the Omega HH147U temperature logger meter. ***
 [Thermocouple]
-Read : ??  # Read the four thermocouple sensors.
+ReadTemp : AAB40110AB  # Read the four thermocouple sensors.
 
