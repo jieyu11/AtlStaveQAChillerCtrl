@@ -15,10 +15,19 @@
 #           d = device specific command for action desired by user command.  ex: SP?
 #           c = comment about what command does.
 
+# *** short name for each device facilitating fetching devices commands ***
+# *** user type: cStop, meaning Stop under Chiller section              ***
+[ShortName]
+c : Chiller
+i : Pump
+h : Humidity
+t : Thermocouple 
+
+
 #  *** Commands for the SP Scientific RC211B0 recirculating chiller. ***
 [Chiller] 
-StartChiller : START   # Turn on the chiller.
-StopChiller : STOP     # Turn off the chiller.
+Start : START          # Turn on the chiller.
+Stop : STOP            # Turn off the chiller.
 SetDegrees : DEGREES   # Set the temperature scale. 0=Celsius, 1=Fahrenheith, 2=Kelvin
 Setpoint? : SP?        # Query the temperature setpoint in degrees.
 ChangeSetpoint : SP=   # Set the temperature setpoint in degrees.
@@ -53,17 +62,17 @@ SetFluidLo : FSPANL    # Set the low temperature limit for fluid type.
 #   Note the commands are Hex values, not text.  Every command must end with the correct
 #   two byte Cyclic Redundancy Check (CRC) value. 
 [Pump]
-StartPump : 01060002000829CC  # Start the booster pump.
-StopPump : 01060002000429C9   # Stop the booster pump.
-RPM : 0106002D00xxyyyy        # Set the RPM of the booster pump.  xx=RPM, yyyy=CRC value.
+Start : 01060002000829CC  # Start the booster pump.
+Stop : 01060002000429C9   # Stop the booster pump.
+RPM : 0106002D00xxyyyy    # Set the RPM of the booster pump.  xx=RPM, yyyy=CRC value.
 
 
 #  *** Commands for the Omega HH314A humidity meter. ***
 [Humidity]
-ReadHumid : A  # Read humidity sensor.
+Read : A  # Read humidity sensor.
 
 
 #  *** Commands for the Omega HH147U temperature logger meter. ***
 [Thermocouple]
-ReadTemp : AAB40110AB  # Read the four thermocouple sensors.
+Read : AAB40110AB  # Read the four thermocouple sensors.
 
