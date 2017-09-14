@@ -28,15 +28,15 @@ import logging
 import ChillerRdConfig
 
 class clsDevice:
-  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None):
+  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=2):
     """
       function of initialization
     """
     print (' NAME ' + strname + ' PORT ' + strport + ' baud ' + str(intbaud) )
 
     self.bolstatus = True
-    if str('Humidity') == strname:
-      print ( ' loading Humidity ' )
+    if str('Humidity') == strname or str('Chiller') == strname:
+      print ( ' loading Device ' + strname )
       self.__pdev = serial.Serial( strport, intbaud) 
       self.__pdev.bytesize = bytesize
       self.__pdev.parity = parity
@@ -67,6 +67,33 @@ class clsDevice:
       strline = byteline.hex()
       humval = int(strline[6:10], 16) / 10
       logging.info( ' READING current ' + self.strname + ' value: {:4.1f}%'.format( humval )  )
+      # TODO: do I need to return the value??
+      #return humval
+
+    elif str('Chiller') == self.strname:
+      self.__pdev.write( (strcmdname + '\r\n').encode() )
+      logging.info('after chiller command ' + strcmdname)
+
+      byteline = self.__pdev.readline()
+      strinclines =  byteline.decode()
+
+      for index, strline in enumerate(strinclines.splitlines()) :
+        print ( strline )
+        if index ==0 and strline[0:2] == str('OK') : 
+          print ('all OK, go ahead ')
+        elif index ==0 :
+          print ('NOT OK, return ')
+          return
+        elif index == 1 :
+          strvarname = strline[0:3]
+          fltvarvalue = float( strline[5:-1] )
+
+          if strvarname[0:1] == str('E') :
+            logging.error( ' Device ' + self.strname + ' returned error message: ' + strline  )
+            return
+
+          logging.info( ' READING current ' + self.strname + ' value: %4.2f ' % fltvarvalue   )
+          return
       # TODO: do I need to return the value??
       #return humval
 

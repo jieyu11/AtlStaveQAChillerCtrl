@@ -20,6 +20,7 @@ reading configuration file
 
 import configparser
 import logging
+import re
 class clsCommands:
   def __init__(self, strcmdname):
     """
@@ -66,8 +67,10 @@ class clsCommands:
       e.g. cStop = Chiller Stop
       return a tuple (device name, command name)
     """
-    __strshname  = strdevcmd[0]    # the first character
+    __strshname  = strdevcmd[0]    # the first character to indicate the device
     __strcmdname = strdevcmd[1:]   # the rest of the string
+    #TODO: some commands have value attached to it
+    #TODO: need to split the command using re.split('(\d.*)', __strcmdname ) first
     strdevname = ''
     if __strshname not in self.__cmdconf[ self.__shortname ] :
       logging.error(' - ' + __strshname + ' not found in section '+ self.__shortname + ' config file: ' + self.strname )

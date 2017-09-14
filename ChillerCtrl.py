@@ -34,6 +34,7 @@ import logging
 # config: https://docs.python.org/3.6/library/configparser.html
 import configparser
 import sys
+import time
 from datetime import datetime
 from ChillerRdDevices import *
 from ChillerRdConfig import *
@@ -74,15 +75,24 @@ istDevHdl = clsDevicesHandler( istConf )
 # ------------------------------------------------------------------------------
 # ------------------------------ COMMANDS --------------------------------------
 istCommand = clsCommands( strcmdname )
-#strdevname, strcmdname = istCommand.getdevicecommand( 'cStart' )
-strdevname, strcmdname = istCommand.getdevicecommand( 'hRead' )
+#strdevname, strcmdname = istCommand.getdevicecommand( 'hRead' )
+
+#commands = ['cStart', 'cStop' ]
+commands = ['cSetpoint?', 'cChangeSetpoint']
 
 
 # ------------------------------------------------------------------------------
 # ---------------------------- MAIN ROUTINE ------------------------------------
-logging.info(' - OK, now perform command ' + strcmdname + ' on ' + strdevname )
-istDevHdl.readdevice( strdevname, strcmdname )
-istDevHdl.writedevice( strdevname, strcmdname )
+
+for devcmd in commands : 
+  strdevname, strcmdname = istCommand.getdevicecommand( devcmd )
+  logging.info(' - OK, now perform command ' + strcmdname + ' on ' + strdevname )
+  istDevHdl.readdevice( strdevname, strcmdname )
+  istDevHdl.writedevice( strdevname, strcmdname )
+  for iw in range(0,20,10):
+    print ("waiting %d seconds " % iw )
+    time.sleep(10) # sleep 20 seconds
+
 
 
 
