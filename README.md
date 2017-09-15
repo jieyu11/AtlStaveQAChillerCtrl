@@ -8,8 +8,10 @@ Introduction
   * Allow user interruption to abort the program in case of any error.
 
 Requirements
+
 	* Software
 	Any OS that supports Python.  Python 3.6.2 or greater interpreter.  200MB for Python and ?KB for ChillerCtrl.py. 
+
 	* Hardware
 	A computer with at least one RS-232 serial port and 4 USB ports.  One USB port is expected to have a USB to RS-485 adapter.
 	The cooling system is composed of: FTS System RC211B0 recirculating cooler; Lenze ESV751N02YXC EMA 4x inverter drive;
@@ -45,6 +47,7 @@ Notice
 
 
 Authors
+
 	* William Heidorn, Iowa State University,  USA  wheidorn@iastate.edu
 	* Jie Yu, Iowa State University,  USA  jieyu@iastate.edu
 	* Roy Mckay, Iowa State University, USA  mckay@iastate.edu
