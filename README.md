@@ -3,12 +3,13 @@
 Introduction
 
 	The program ChillerCtrl.py purpose is to control the coolant fluid temperature and flow through the ATLAS stave.  
+  * Automate running loops of low -- high -- low temperature circles of the chiller.
+  * Record corresponding temperature readout from the thermal couple and humidity values from humidity sensor.
+  * Allow user interruption to abort the program in case of any error.
 
 Requirements
-	
 	* Software
 	Any OS that supports Python.  Python 3.6.2 or greater interpreter.  200MB for Python and ?KB for ChillerCtrl.py. 
-	
 	* Hardware
 	A computer with at least one RS-232 serial port and 4 USB ports.  One USB port is expected to have a USB to RS-485 adapter.
 	The cooling system is composed of: FTS System RC211B0 recirculating cooler; Lenze ESV751N02YXC EMA 4x inverter drive;
@@ -31,20 +32,19 @@ History
 Notice
  
   Following are the abbreviations used for variable/object identifications:
-    * int – integer
-    * str – string
-    * chr - char
-    * dict – dictionary
-    * bol – Boolean
-    * lng – long
-    * flt – float
-    * lst – list
-    * cls - class
-    * ist - class instance
+  * int – integer
+  * str – string
+  * chr - char
+  * dict – dictionary
+  * bol – Boolean
+  * lng – long
+  * flt – float
+  * lst – list
+  * cls - class
+  * ist - class instance
 
 
 Authors
-
 	* William Heidorn, Iowa State University,  USA  wheidorn@iastate.edu
 	* Jie Yu, Iowa State University,  USA  jieyu@iastate.edu
 	* Roy Mckay, Iowa State University, USA  mckay@iastate.edu
