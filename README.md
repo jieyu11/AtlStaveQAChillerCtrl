@@ -20,14 +20,9 @@ Installation
 	Follow Python installer instructions for installing Python.  Place the ChillerCtrl.py in any desired directory.
 	
 Usage
-
-  * python ChillerCtrl.py
-
-  or, specify the version of python:
-
-	* python3.6 ChillerCtrl.py
-
-  python version check: python --version
+  * download: git clone https://github.com/jieyu11/AtlStaveQAChillerCtrl.git
+  * run: python ChillerCtrl.py ( OR, specify the python version: python3.6 ChillerCtrl.py)
+  * in case needed: python version check: python --version
 	
 History
 
@@ -36,20 +31,20 @@ History
 Notice
  
   Following are the abbreviations used for variable/object identifications:
-    int – integer
-    str – string
-    chr - char
-    dict – dictionary
-    bol – Boolean
-    lng – long
-    flt – float
-    lst – list
-    cls - class
-    ist - class instance
+    * int – integer
+    * str – string
+    * chr - char
+    * dict – dictionary
+    * bol – Boolean
+    * lng – long
+    * flt – float
+    * lst – list
+    * cls - class
+    * ist - class instance
 
 
 Authors
 
-	William Heidorn, Iowa State University,  USA  wheidorn@iastate.edu
-	Jie Yu, Iowa State University,  USA  jieyu@iastate.edu
-	Roy Mckay, Iowa State University, USA  mckay@iastate.edu
+	* William Heidorn, Iowa State University,  USA  wheidorn@iastate.edu
+	* Jie Yu, Iowa State University,  USA  jieyu@iastate.edu
+	* Roy Mckay, Iowa State University, USA  mckay@iastate.edu
