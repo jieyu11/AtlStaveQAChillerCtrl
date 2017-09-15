@@ -25,15 +25,13 @@ device class to read from / write to USB connected devices:
 import serial
 import time
 import logging
-import ChillerRdConfig
 
 class clsDevice:
-  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=2):
+  def __init__(self, strname, strport, intbaud, bytesize, parity, stopbits, timeout):
     """
       function of initialization for any device
     """
-    print ( ' NAME ' + strname + ' PORT ' + strport + ' baud ' + str(intbaud) )
-    print ( ' loading Device ' + strname )
+    print ( ' Device name ' + strname + ' PORT ' + strport + ' baud ' + str(intbaud) )
 
     self.bolstatus = True
     self._pdev = serial.Serial( strport, intbaud) 
@@ -45,21 +43,19 @@ class clsDevice:
     self.bolstatus = self._pdev.is_open # need to check the device status first
 
     self.strname = strname
-    logging.info( 'Loading {:20s}'.format( strname ) + \
-                  ' at port {:6s}'.format( strport ) + \
-                  ' baudrate at {:6d}'.format( intbaud ) + \
-                  ' status {:b}'.format( self.bolstatus) );
+    logging.info( 'Loading {:20s}'.format( strname ) + ' at port {:6s}'.format( strport ) + \
+                  ' baudrate at {:6d}'.format( intbaud ) + ' status {:b}'.format( self.bolstatus) );
+
   def __str__(self):
-    print( 'Device {:20s}'.format( strname ) + \
-           ' at port {:6s}'.format( strport ) + \
-           ' baudrate at {:6d}'.format( intbaud ) + \
-           ' status {:b}'.format( self.bolstatus) );
+    print( 'Device {:20s}'.format( strname ) + ' at port {:6s}'.format( strport ) + \
+           ' baudrate at {:6d}'.format( intbaud ) + ' status {:b}'.format( self.bolstatus) );
 
   def read(self, strcmdname):
     """
       function of reading device data
     """
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+
 
 class clsHumidity ( clsDevice ):
   def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None):
@@ -70,7 +66,7 @@ class clsHumidity ( clsDevice ):
 
   def read(self, strcmdname):
     """
-      function of reading device data
+      Humidity: function of reading data
     """
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
     # TODO: here should test if the device is connected already!!!
@@ -85,18 +81,39 @@ class clsHumidity ( clsDevice ):
     #return humval
 
 class clsThermocouple ( clsDevice ):
-  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=2):
+  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=60):
     """
-      Device: Chiller, function of initialization
+      Device: Thermocouple, function of initialization
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
 
 
   def read(self, strcmdname):
     """
-      function of reading device data
+      Thermocouple: function of reading data
     """
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+    self._pdev.write( (strcmdname + '\r\n').encode() )
+
+    print ('Start reading thermocouple reader!!! ')
+    byteline = self._pdev.readline()
+    strinclines =  byteline.decode()
+    for index, strline in enumerate(strinclines.splitlines()) :
+      print ('index ' + str(index) + ' line: ' + strline )
+
+    #byteline = self._pdev.readline()
+    #strinclines =  byteline.hex()
+    #print (' read thermocouple: '+strinclines )
+    #if self._pdev.inWaiting():
+    #  print ('Device is waiting ')
+
+    #byteline = self._pdev.read(10)
+    #strline = byteline.hex()
+    #print( ' READING current ' + self.strname + ' value: ' + strline  )
+    #humval = int(strline[6:10], 16) / 10
+    #logging.info( ' READING current ' + self.strname + ' value: {:4.1f}%'.format( humval )  )
+    # TODO: do I need to return the value??
+    #return humval
 
 class clsChiller ( clsDevice ):
   def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=2):
@@ -108,7 +125,7 @@ class clsChiller ( clsDevice ):
 
   def read(self, strcmdname):
     """
-      function of reading device data
+      Chiller: function of reading data
     """
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
     self._pdev.write( (strcmdname + '\r\n').encode() )
@@ -137,16 +154,16 @@ class clsChiller ( clsDevice ):
     #return humval
 
 class clsPump ( clsDevice ):
-  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=2):
+  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=2, timeout=0):
     """
-      Device: boost pump, function of initialization for any device
+      Device: boost pump, function of initialization
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
 
 
   def read(self, strcmdname):
     """
-      function of reading device data
+      Pump: function of reading data
     """
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
 

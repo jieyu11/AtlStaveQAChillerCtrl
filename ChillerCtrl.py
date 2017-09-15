@@ -79,7 +79,8 @@ istCommand = clsCommands( strcmdname )
 
 #commands = ['cStart', 'cStop' ]
 #commands = ['cSetpoint?', 'cChangeSetpoint']
-commands = ['hRead']
+#commands = ['hRead']
+commands = ['tRead']
 
 
 # ------------------------------------------------------------------------------
@@ -91,7 +92,7 @@ for devcmd in commands :
   istDevHdl.readdevice( strdevname, strcmdname )
   for iw in range(0,20,10):
     print ("waiting %d seconds " % iw )
-    time.sleep(10) # sleep 20 seconds
+    time.sleep(1) # sleep 20 seconds
 
 
 

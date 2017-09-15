@@ -22,6 +22,7 @@ BAUD      =  9600   #Set the baud rate to match the chiller.
 BITS      =  8      #Set the number of data length. 7 if parity used; 8 if no parity.
 PARITY    =  None   #Set the parity bit to match the chiller.
 STOPBITS  =  1      #Choices 1,1.5,2
+TIMEOUT   =  0      #0: read immediately, None: wait forever, X: wait X s
 
 #    Set the parameters for the chiller.
 CLRALARM  =  Yes    # Clear all alarms.
@@ -47,7 +48,7 @@ BAUD      =  9600   #Set the baud rate to match the inverter.
 BITS      =  8      #Set the number of data bits. 7 or 8
 PARITY    =  None   #Set the parity bit to match the inverter.
 STOPBITS  =  2      #Choices 1 or 2
-
+TIMEOUT   =  0      #0: read immediately, None: wait forever, X: wait X s
 
 #  *** Configuration for Omega HH314A Humidity meter. ***
 [Humidity]
@@ -57,6 +58,7 @@ BAUD      =  9600   #Set the baud rate to match the meter.
 BITS      =  8      #Set the number of data bits.
 PARITY    =  None   #Set the parity bit to match meter.
 STOPBITS  =  1      #Choice 1
+TIMEOUT   =  0      #0: read immediately, None: wait forever, X: wait X s
 
 
 #  *** Configuration for Omega HH147U temperature data logger. ***
@@ -67,3 +69,4 @@ BAUD      =  9600   #Set the baud rate to match the meter.
 BITS      =  8      #Set the number of data bits.
 PARITY    =  None   #Set the parity bit to match meter.
 STOPBITS  =  1      #Choice 1
+TIMEOUT   =  0      #0: read immediately, None: wait forever, X: wait X s
