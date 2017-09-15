@@ -22,88 +22,10 @@ device class to read from / write to USB connected devices:
 #
 #
 # need to install it: pip3.6 install pyserial
-import serial
-import time
 import logging
 import ChillerRdConfig
-
-class clsDevice:
-  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=2):
-    """
-      function of initialization
-    """
-    print (' NAME ' + strname + ' PORT ' + strport + ' baud ' + str(intbaud) )
-
-    self.bolstatus = True
-    if str('Humidity') == strname or str('Chiller') == strname:
-      print ( ' loading Device ' + strname )
-      self.__pdev = serial.Serial( strport, intbaud) 
-      self.__pdev.bytesize = bytesize
-      self.__pdev.parity = parity
-      self.__pdev.stopbits = stopbits
-      self.__pdev.timeout = timeout
-      # self.__pdev.open()
-      self.bolstatus = self.__pdev.is_open # need to check the device status first
-
-    self.strname = strname
-    logging.info( 'Loading {:20s}'.format( strname ) + \
-                  ' at port {:6s}'.format( strport ) + \
-                  ' baudrate at {:6d}'.format( intbaud ) + \
-                  ' status {:b}'.format( self.bolstatus) );
-
-  def read(self, strcmdname):
-    """
-      function of reading device data
-    """
-
-    logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
-
-    if str('Humidity') == self.strname:
-      # TODO: here should test if the device is connected already!!!
-
-      self.__pdev.write( (strcmdname + '\r\n').encode() )
-      # read 10 bits
-      byteline = self.__pdev.read(10)
-      strline = byteline.hex()
-      humval = int(strline[6:10], 16) / 10
-      logging.info( ' READING current ' + self.strname + ' value: {:4.1f}%'.format( humval )  )
-      # TODO: do I need to return the value??
-      #return humval
-
-    elif str('Chiller') == self.strname:
-      self.__pdev.write( (strcmdname + '\r\n').encode() )
-      logging.info('after chiller command ' + strcmdname)
-
-      byteline = self.__pdev.readline()
-      strinclines =  byteline.decode()
-
-      for index, strline in enumerate(strinclines.splitlines()) :
-        print ( strline )
-        if index ==0 and strline[0:2] == str('OK') : 
-          print ('all OK, go ahead ')
-        elif index ==0 :
-          print ('NOT OK, return ')
-          return
-        elif index == 1 :
-          strvarname = strline[0:3]
-          fltvarvalue = float( strline[5:-1] )
-
-          if strvarname[0:1] == str('E') :
-            logging.error( ' Device ' + self.strname + ' returned error message: ' + strline  )
-            return
-
-          logging.info( ' READING current ' + self.strname + ' value: %4.2f ' % fltvarvalue   )
-          return
-      # TODO: do I need to return the value??
-      #return humval
-
-  def write(self, strcmdname):
-    """
-      function of writing to device
-    """
-    # format: https://pyformat.info/
-    logging.info( ' WRITING: Sending command ' + strcmdname + ' to device ' + self.strname )
-
+from ChillerDevices import *
+#clsChiller clsPump clsHumidity clsThermocouple
 class clsDevicesHandler:
   def __init__(self, istConfig):
     """
@@ -121,7 +43,19 @@ class clsDevicesHandler:
       # otherwise skip the section, not device
       if 'port' not in istConfig.keys( strdevname ) :
         continue
-      self.__dictDevices[ strdevname ] = clsDevice(strdevname, istConfig.get(strdevname, 'Port'), int( istConfig.get(strdevname, 'Baud')) )
+
+      strPort = istConfig.get(strdevname, 'Port')
+      intBaud = int( istConfig.get(strdevname, 'Baud'))
+      if strdevname == 'Chiller':
+        self.__dictDevices[ strdevname ] = clsChiller(strdevname, strPort, intBaud)
+      elif strdevname == 'Pump':
+        self.__dictDevices[ strdevname ] = clsPump(strdevname, strPort, intBaud)
+      elif strdevname == 'Humidity':
+        self.__dictDevices[ strdevname ] = clsHumidity(strdevname, strPort, intBaud)
+      elif strdevname == 'Thermocouple':
+        self.__dictDevices[ strdevname ] = clsThermocouple(strdevname, strPort, intBaud)
+      else:
+        logging.error( ' Device name: ' + strdevname + ' not found! ')
 
   def readdevice(self, strdevname, strcmdname) :
     """
@@ -129,13 +63,6 @@ class clsDevicesHandler:
       and command name
     """
     self.__dictDevices[ strdevname ].read( strcmdname )
-
-  def writedevice(self, strdevname, strcmdname) :
-    """
-      function to write to one of the devices through device name
-      and command name
-    """
-    self.__dictDevices[ strdevname ].write( strcmdname )
 
   def getdevice(self, strdevname) :
     """
