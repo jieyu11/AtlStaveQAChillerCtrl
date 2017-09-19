@@ -81,7 +81,7 @@ class clsHumidity ( clsDevice ):
     #return humval
 
 class clsThermocouple ( clsDevice ):
-  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=60):
+  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None):
     """
       Device: Thermocouple, function of initialization
     """
@@ -93,13 +93,41 @@ class clsThermocouple ( clsDevice ):
       Thermocouple: function of reading data
     """
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
-    self._pdev.write( (strcmdname + '\r\n').encode() )
+    #self._pdev.write( (strcmdname + '\r\n').encode() )
+    #should send HEX instead of a string
+    self._pdev.write( bytes.fromhex(strcmdname) )
 
-    print ('Start reading thermocouple reader!!! ')
-    byteline = self._pdev.readline()
-    strinclines =  byteline.decode()
-    for index, strline in enumerate(strinclines.splitlines()) :
-      print ('index ' + str(index) + ' line: ' + strline )
+    print ('Start reading thermocouple reader!!! ' + strcmdname )
+    byteline = self._pdev.read(100)
+    strline = byteline.hex()
+    # Response
+    # AA B2 80 00 00 76 01 00 AB
+    # AA B1 80 00 00 76 01 00 
+    # 13 02 00 07 12 02 00 21 11 02 00 09 66 02 00 43 AB
+    # (    T1   ) (    T2   ) (    T3   ) (    T4   )
+    # ...
+    # ...
+    # NO "\n" or "\r" in the response, all in one line!!
+    # To keep the result:
+    # -- discard the first 17 bytes
+    # -- use the next 4 x 4 bytes for T1 -- T4 temperatures
+    # -- convert hex numbers into readable
+ 
+    print ("got "+ strline)
+    for Tidx in range(4) :
+      idxbase = 34 + Tidx * 8
+      strTval = strline[idxbase+2:idxbase+4] + strline[idxbase:idxbase+2] + strline[idxbase+6:idxbase+8] 
+      #print (' THE value ' + strTval )
+      Tval = int(strTval) / 1000
+      print( ' READING current ' + self.strname + ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval )  )
+      logging.info( ' READING current ' + self.strname + ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval )  )
+
+    #byteline = self._pdev.readline()
+    #strinclines =  byteline.hex()
+    #print ("print all lines")
+    #for index, strline in enumerate(strinclines.splitlines()) :
+    #  print ('index ' + str(index) + ' line: ' + strline )
+
 
     #byteline = self._pdev.readline()
     #strinclines =  byteline.hex()

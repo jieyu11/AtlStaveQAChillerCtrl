@@ -167,6 +167,9 @@ starts at byte position 9.  Each temperture reading uses 4 bytes.  Thus T1
 values are at positions 9-12, T2 values at 13-16, T3 values at 17-20, and 
 T4 at 21-24.
 
+Attention: the lines are NOT separated by "\n". They are ended with "AB".
+
+
  Command     
    AAB40110AB
 
