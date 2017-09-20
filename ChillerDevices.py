@@ -25,6 +25,7 @@ device class to read from / write to USB connected devices:
 import serial
 import time
 import logging
+from CycRedundCheck import *
 
 class clsDevice:
   def __init__(self, strname, strport, intbaud, bytesize, parity, stopbits, timeout):
@@ -193,16 +194,45 @@ class clsPump ( clsDevice ):
       Device: boost pump, function of initialization
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
+    self.istCRC = CycRedundCheck()
 
 
   def read(self, strcmdname, strcmdpara=""):
     """
       Pump: function of reading data
     """
-    logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
-    #should send HEX instead of a string
-    self._pdev.write( bytes.fromhex(strcmdname) )
+    if strcmdpara == "" : 
+      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+      self._pdev.write( bytes.fromhex(strcmdname) )
+    else :
+      if strcmdname[-1:] == "=" :
+        strcmdname = strcmdname[0:-1]
+
+      print ("pump parameter: " + strcmdpara)
+      intcmdpara = int(strcmdpara)
+      if intcmdpara < 5 or intcmdpara > 25 :
+        logging.warning( ' setting value ' + strcmdpara + ' is out of allowed range [5, 25] to device ' + self.strname )
+        print( ' WARNING setting value ' + strcmdpara + ' is out of allowed range [5, 25] to device ' + self.strname )
+        intcmdpara = 10
+        strcmdpara = "10"
+
+      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + ' at parameter ' + strcmdpara )
+      strcmdpara = '{:02x}'.format(intcmdpara) # should return a hex number with 015A...
+      #strhexcmdpara = '{:02x}'.format(intcmdpara) # should return a hex number with \x01\x5A...
+      strhexcmdpara = str( bytes.fromhex(strcmdpara) )
+      #strhexcmdpara = strcmdpara.decode("hex")
+      print ("looking good ? " + strhexcmdpara + " from " + strcmdpara )
+
+      crc = 0xFFFF
+      hexcrc = self.istCRC.calcString(strhexcmdpara, crc)
+      print ('conver to string ' + str(hexcrc) )
+      strhexcrc = format(hexcrc, 'x')
+      print( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + ' at parameter in hex: ' + strcmdpara + " generated: " + strhexcrc )
+      print ('SENDING : ' + strcmdname+strcmdpara+strhexcrc)
+
+      self._pdev.write( bytes.fromhex(strcmdname+strcmdpara+strhexcrc) )
 
     byteline = self._pdev.readline()
     strline = byteline.hex()
+    print( ' READING current ' + self.strname + ' value: ' + strline )
     logging.info( ' READING current ' + self.strname + ' value: ' + strline )

@@ -79,11 +79,13 @@ istCommand = clsCommands( strcmdname )
 
 #commands = ['cStart', 'cStop' ]
 #commands = ['cSetpoint?', 'cChangeSetpoint']
-commands = ['cChangeSetpoint=20', 'cStop']
+#commands = ['cChangeSetpoint=20', 'cStop']
 #commands = ['hRead']
 #commands = ['tRead']
-#commands = ['iUnlockDrive', 'iStart', 'iStop']
+#commands = ['iUnlockDrive', 'iStart', 'iRPM=11'] # 'iStop']
+commands = ['iStop', "cStop"]
 #commands = ['iStart', 'iStop']
+#commands = ['iRPM=20']
 
 
 # ------------------------------------------------------------------------------

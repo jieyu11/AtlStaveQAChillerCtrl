@@ -1,4 +1,4 @@
-class ConvertCRC : 
+class CycRedundCheck : 
   table = tuple()
   # crc16_Init() - Initialize the CRC-16 self.table (crc16_Table[])
   def __init__( self ):
@@ -53,6 +53,16 @@ class ConvertCRC :
           print ("expect:0x3A53 but saw 0x%x" % crc)
       else:
           print ("Ok")
+
+      print ('JY: test of string without \\x in front ')
+      st = "EA0300000064"
+      for ch in st:
+          crc = self.calcByte( ch, crc)
+      if( crc != 0x3A53):
+          print ("BAD - ERROR - FAILED!",)
+          print ("expect:0x3A53 but saw 0x%x" % crc)
+      else:
+          print ("Ok")
          
       print ("test case #2:",)
       st = "\x4b\x03\x00\x2c\x00\x37"
@@ -88,6 +98,6 @@ class ConvertCRC :
       return
 	 
 if __name__ == '__main__':
-    istCRCtool = ConvertCRC()
+    istCRCtool = CycRedundCheck()
     istCRCtool.testCRC()
 
