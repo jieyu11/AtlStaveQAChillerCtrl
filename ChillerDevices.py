@@ -50,11 +50,14 @@ class clsDevice:
     print( 'Device {:20s}'.format( strname ) + ' at port {:6s}'.format( strport ) + \
            ' baudrate at {:6d}'.format( intbaud ) + ' status {:b}'.format( self.bolstatus) );
 
-  def read(self, strcmdname):
+  def read(self, strcmdname, strcmdpara=""):
     """
       function of reading device data
     """
-    logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+    if strcmdpara == "" :
+      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+    else:
+      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + " with parameter " + strcmdpara )
 
 
 class clsHumidity ( clsDevice ):
@@ -64,7 +67,7 @@ class clsHumidity ( clsDevice ):
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
 
-  def read(self, strcmdname):
+  def read(self, strcmdname, strcmdpara=""):
     """
       Humidity: function of reading data
     """
@@ -88,7 +91,7 @@ class clsThermocouple ( clsDevice ):
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
 
 
-  def read(self, strcmdname):
+  def read(self, strcmdname, strcmdpara=""):
     """
       Thermocouple: function of reading data
     """
@@ -151,13 +154,16 @@ class clsChiller ( clsDevice ):
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
 
 
-  def read(self, strcmdname):
+  def read(self, strcmdname, strcmdpara=""):
     """
       Chiller: function of reading data
     """
-    logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
-    self._pdev.write( (strcmdname + '\r\n').encode() )
-    logging.info(' Device ' + self.strname + ' command ' + strcmdname)
+    if strcmdpara == "" :
+      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+      self._pdev.write( (strcmdname + '\r\n').encode() )
+    else :
+      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + " with parameter " + strcmdpara)
+      self._pdev.write( (strcmdname + strcmdpara + '\r\n').encode() )
 
     byteline = self._pdev.readline()
     strinclines =  byteline.decode()
@@ -169,12 +175,12 @@ class clsChiller ( clsDevice ):
         logging.error(' Device ' + self.strname + ' Error status: ' + strline + '. Return! ' )
         return
       elif index == 1 :
+        strvarname = strline[0:3]
+        fltvarvalue = float( strline[5:-1] )
+
         if strvarname[0:1] != str('F') :
           logging.error( ' Device ' + self.strname + ' returned message: ' + strline + ' not recognized. Return!' )
           return
-
-        strvarname = strline[0:3]
-        fltvarvalue = float( strline[5:-1] )
 
         logging.info( ' READING current ' + self.strname + ' value: %4.2f ' % fltvarvalue   )
         return
@@ -189,7 +195,7 @@ class clsPump ( clsDevice ):
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
 
 
-  def read(self, strcmdname):
+  def read(self, strcmdname, strcmdpara=""):
     """
       Pump: function of reading data
     """

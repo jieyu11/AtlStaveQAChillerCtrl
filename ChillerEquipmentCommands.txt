@@ -14,6 +14,10 @@
 #           u = user command text.  ex: Setpoint
 #           d = device specific command for action desired by user command.  ex: SP?
 #           c = comment about what command does.
+#  Notice: 
+#          - for commands followed by a value: e.g. Chiller's "ChangeSetpoint"
+#            one should use: ChangeSetpoint=20 or ChangeSetpoint=-30
+
 
 # *** short name for each device facilitating fetching devices commands ***
 # *** user type: cStop, meaning Stop under Chiller section              ***
@@ -30,7 +34,7 @@ Start : START          # Turn on the chiller.
 Stop : STOP            # Turn off the chiller.
 SetDegrees : DEGREES   # Set the temperature scale. 0=Celsius, 1=Fahrenheith, 2=Kelvin
 Setpoint? : SP?        # Query the temperature setpoint in degrees.
-ChangeSetpoint : SP=   # Set the temperature setpoint in degrees.
+ChangeSetpoint : SP=   # Set the temperature setpoint in degrees. Usage:ChangeSetpoint=-20
 AlarmStat? : ALMCODE?  # Values in system alarm table.
 AlarmClr : CLRALARM    # Clear all the alarm conditions.
 SetAlarmHi : ALARMH    # Set the alarm oertemp value.

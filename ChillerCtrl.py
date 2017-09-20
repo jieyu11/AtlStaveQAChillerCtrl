@@ -79,19 +79,23 @@ istCommand = clsCommands( strcmdname )
 
 #commands = ['cStart', 'cStop' ]
 #commands = ['cSetpoint?', 'cChangeSetpoint']
+commands = ['cChangeSetpoint=20', 'cStop']
 #commands = ['hRead']
 #commands = ['tRead']
 #commands = ['iUnlockDrive', 'iStart', 'iStop']
-commands = ['iStart', 'iStop']
+#commands = ['iStart', 'iStop']
 
 
 # ------------------------------------------------------------------------------
 # ---------------------------- MAIN ROUTINE ------------------------------------
 
 for devcmd in commands : 
-  strdevname, strcmdname = istCommand.getdevicecommand( devcmd )
-  logging.info(' - OK, now perform command ' + strcmdname + ' on ' + strdevname )
-  istDevHdl.readdevice( strdevname, strcmdname )
+  strdevname, strcmdname, strcmdpara = istCommand.getdevicecommand( devcmd )
+  if strcmdpara == "" : 
+    logging.info(' - OK, now perform command ' + strcmdname + ' on ' + strdevname )
+  else:
+    logging.info(' - OK, now perform command ' + strcmdname + ' on ' + strdevname + " with parameter " + strcmdpara)
+  istDevHdl.readdevice( strdevname, strcmdname, strcmdpara)
   for iw in range(0,20,10):
     print ("waiting %d seconds " % iw )
     time.sleep(10) # sleep 20 seconds

@@ -68,7 +68,15 @@ class clsCommands:
       return a tuple (device name, command name)
     """
     __strshname  = strdevcmd[0]    # the first character to indicate the device
-    __strcmdname = strdevcmd[1:]   # the rest of the string
+    __strcmdname = strdevcmd[1:]   # the rest of the string is the command 
+    strcmdpar    = ''              # if found an equal sign, it means the command should follow a value
+    if "=" in strdevcmd:
+      idx = strdevcmd.index("=")
+      strcmdpar = strdevcmd[idx+1:]
+      __strcmdname = strdevcmd[1:idx]
+      print ("index = at "+str(idx) )
+    print( "!!! short name " + __strshname + " command name " + __strcmdname + " value " + strcmdpar )
+
     #TODO: some commands have value attached to it
     #TODO: need to split the command using re.split('(\d.*)', __strcmdname ) first
     strdevname = ''
@@ -85,7 +93,7 @@ class clsCommands:
     else :
       strcmdval = self.__cmdconf[ strdevname ][ __strcmdname ]
 
-    return (strdevname, strcmdval)
+    return (strdevname, strcmdval, strcmdpar)
 
   def sections(self):
     """

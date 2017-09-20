@@ -57,12 +57,12 @@ class clsDevicesHandler:
       else:
         logging.error( ' Device name: ' + strdevname + ' not found! ')
 
-  def readdevice(self, strdevname, strcmdname) :
+  def readdevice(self, strdevname, strcmdname, strcmdpara) :
     """
       function to read from one of the devices through device name
       and command name
     """
-    self.__dictDevices[ strdevname ].read( strcmdname )
+    self.__dictDevices[ strdevname ].read( strcmdname, strcmdpara)
 
   def getdevice(self, strdevname) :
     """
