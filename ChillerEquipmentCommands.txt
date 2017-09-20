@@ -62,9 +62,11 @@ SetFluidLo : FSPANL    # Set the low temperature limit for fluid type.
 #   Note the commands are Hex values, not text.  Every command must end with the correct
 #   two byte Cyclic Redundancy Check (CRC) value. 
 [Pump]
-Start : 01060002000829CC  # Start the booster pump.
-Stop : 01060002000429C9   # Stop the booster pump.
-RPM : 0106002D00xxyyyy    # Set the RPM of the booster pump.  xx=RPM, yyyy=CRC value.
+UnlockDrive : 01060030000089C5     # Do once everytime after power on the pump
+UnlockParameter : 010600310000D805 # Do once if need to change RPM
+Start : 010600010008D9CC           # Start the booster pump.
+Stop : 010600010004D9C9            # Stop the booster pump.
+RPM : 0106002D00xxyyyy             # Set the RPM of the booster pump.  xx=RPM, yyyy=CRC value.
 
 
 #  *** Commands for the Omega HH314A humidity meter. ***

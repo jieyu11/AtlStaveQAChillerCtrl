@@ -182,7 +182,7 @@ class clsChiller ( clsDevice ):
     #return humval
 
 class clsPump ( clsDevice ):
-  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=2, timeout=0):
+  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=1):
     """
       Device: boost pump, function of initialization
     """
@@ -194,4 +194,9 @@ class clsPump ( clsDevice ):
       Pump: function of reading data
     """
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+    #should send HEX instead of a string
+    self._pdev.write( bytes.fromhex(strcmdname) )
 
+    byteline = self._pdev.readline()
+    strline = byteline.hex()
+    logging.info( ' READING current ' + self.strname + ' value: ' + strline )
