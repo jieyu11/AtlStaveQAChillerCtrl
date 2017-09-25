@@ -85,11 +85,20 @@ class clsHumidity ( clsDevice ):
     #return humval
 
 class clsThermocouple ( clsDevice ):
-  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None):
+  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None, datapoints=1):
     """
       Device: Thermocouple, function of initialization
+      datapoints: 1 -- 29; 
+          29 data points are obtained each time, one can chose how many to write out.
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
+    self._datapoints = datapoints
+    if datapoints < 1 :
+      self._datapoints = 1
+      logging.warning(' Cannot set data points to ' + str( datapoints ) + ' to ' + self.strname + '. Force it to 1.' )
+    elif datapoints > 29 :
+      self._datapoints = 29
+      logging.warning(' Cannot set data points to ' + str( datapoints ) + ' to ' + self.strname + '. Force it to 29.' )
 
 
   def read(self, strcmdname, strcmdpara=""):
