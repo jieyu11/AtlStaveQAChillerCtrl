@@ -83,13 +83,18 @@ istCommand = clsCommands( strcmdname )
 #commands = ['hRead']
 #commands = ['tRead']
 #commands = ['iUnlockDrive', 'iStart', 'iRPM=11'] # 'iStop']
-commands = ['iStop', "cStop"]
+#commands = ['iStop', "cStop"]
 #commands = ['iStart', 'iStop']
 #commands = ['iRPM=20']
+
+commands = ['cChangeSetpoint=22', 'cChangeSetpoint=45', 'cChangeSetpoint=22', 'cStop']
 
 
 # ------------------------------------------------------------------------------
 # ---------------------------- MAIN ROUTINE ------------------------------------
+
+strdevname_h, strcmdname_h, strcmdpara_h = istCommand.getdevicecommand( 'hRead' )
+strdevname_t, strcmdname_t, strcmdpara_t = istCommand.getdevicecommand( 'tRead' )
 
 for devcmd in commands : 
   strdevname, strcmdname, strcmdpara = istCommand.getdevicecommand( devcmd )
@@ -98,9 +103,13 @@ for devcmd in commands :
   else:
     logging.info(' - OK, now perform command ' + strcmdname + ' on ' + strdevname + " with parameter " + strcmdpara)
   istDevHdl.readdevice( strdevname, strcmdname, strcmdpara)
-  for iw in range(0,20,10):
-    print ("waiting %d seconds " % iw )
-    time.sleep(10) # sleep 20 seconds
+
+  for iw in range(0,10,1):
+    #print ("waiting %d seconds " % iw )
+    istDevHdl.readdevice( strdevname_h, strcmdname_h, strcmdpara_h)
+    # it needs ~25 seconds to read from thermocouple
+    istDevHdl.readdevice( strdevname_t, strcmdname_t, strcmdpara_t)
+    time.sleep(2) # sleep 20 seconds
 
 
 

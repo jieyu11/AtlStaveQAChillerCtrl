@@ -102,7 +102,13 @@ class clsThermocouple ( clsDevice ):
     self._pdev.write( bytes.fromhex(strcmdname) )
 
     print ('Start reading thermocouple reader!!! ' + strcmdname )
-    byteline = self._pdev.read(100)
+    # 734 bytes combining (head) + 29 lines of (data)
+    # head: AA B2 80 00 00 76 01 00 AB
+    # data: AA B1 80 00 00 76 01 00 13 02 00 07 12 02 00 21 11 02 00 09 66 02 00 43 AB
+    # 
+    # it takes about 25 seconds to read all these data
+    # 
+    byteline = self._pdev.read(734)
     strline = byteline.hex()
     # Response
     # AA B2 80 00 00 76 01 00 AB
