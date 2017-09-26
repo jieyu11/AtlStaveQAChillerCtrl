@@ -1,27 +1,56 @@
 """
-reading configuration file
+   Program ChillerRdCmd.py
+	
+	Description: ----------------------------------------------------------------
+	   This file contains the class construct to build the command dictionary
+	object for the slave device(s) connected to the controlling computer.  This
+	file is one part of the controlling software for the automation control of
+	the ATALS inner dectector stave Quality Control checks.  Specifically the
+	thermo imaging checks of the stave.
+		
+	History: --------------------------------------------------------------------
+	  v1.0 - First public release.
+	  
+	Environment: ----------------------------------------------------------------
+	  This program is written in Python 3.6.2.  Python can be freely downloaded
+	from http://www.python.org.  This program has been tested on PCs running 
+	Windows 7.  
+	
+	Author List: ----------------------------------------------------------------
+	   Jie Yu  Iowa State UNiversity, USA  jie.yu@cern.ch
+		
+	Notes: ----------------------------------------------------------------------
+	   ?
+		
+	Dictionary of abbreviations: ------------------------------------------------
+	   cmd = command
+		config = configure
+		dev = device
+		idx = index
+	   str = string
+		val = value
+	
+	
 """
-# function __init__ ( strcmdname ): 
-#   initialize the class clsCommands
-#   using command configuration file
-#
-# function getdevicecommand( strdevcmd ):
-#   provide shortened command name, e.g. cStop
-#   return tuple of (device name, command name)
-#   e.g. return (Chiller, Stop)
-#
-# function sections():
-#   return the list of the section (devices) names
-#
-# function keys(strsection):
-#   provide the section (device) name
-#   return the list of keys for this section (device)
-#
 
-import configparser
-import logging
-import re
+#  Import section --------------------------------------------------------------
+import configparser   # Configurable parser functions/classes.
+import logging        # Flexible event logging funtions/classes.
+import re             # Regular expression operations.
+
+# ########################### Global data section ##############################
+
+
+# ########################### Function section #################################
+
+
+# ########################### Class section ####################################
 class clsCommands:
+# ------------------------------------------------------------------------------
+# function __init__ ( strcmdname ): 
+#   Initialize the class clsCommands.
+#   Source of commands is text configuration file: ChillerEquipmentCommands.txt.
+#
   def __init__(self, strcmdname):
     """
       function of initialization
@@ -58,7 +87,12 @@ class clsCommands:
 
     logging.info( ' ---- ---- ---- ---- ');
 
-
+# ------------------------------------------------------------------------------
+# function getdevicecommand( strdevcmd ):
+#   provide shortened command name, e.g. cStop
+#   return tuple of (device name, command name)
+#   e.g. return (Chiller, Stop)
+#
   def getdevicecommand(self, strdevcmd):
     """
       function to get a value by providing the shorted command name: strdevcmd
@@ -95,12 +129,21 @@ class clsCommands:
 
     return (strdevname, strcmdval, strcmdpar)
 
+# ------------------------------------------------------------------------------
+# function sections():
+#   return the list of the section (devices) names
+#
   def sections(self):
     """
       function to get the list of the sections in the config file
     """
     return self.__cmdconf.sections()
 
+# ------------------------------------------------------------------------------
+# function keys(strsection):
+#   provide the section (device) name
+#   return the list of keys for this section (device)
+#
   def keys(self, strsection):
     """
       function to get the list of the sections in the config file
