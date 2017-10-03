@@ -77,3 +77,10 @@ class clsDevicesHandler:
       for key in self.__dictDevices : 
         logging.error( '     ' + key );
       return None
+
+  def getdevicenames(self) :
+    """
+      function to get the list of device names that have been registered
+    """
+      return tuple( self.__dictDevices.keys() )
+

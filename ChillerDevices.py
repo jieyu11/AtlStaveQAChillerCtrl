@@ -99,12 +99,16 @@ class clsThermocouple ( clsDevice ):
     elif datapoints > 29 :
       self._datapoints = 29
       logging.warning(' Cannot set data points to ' + str( datapoints ) + ' to ' + self.strname + '. Force it to 29.' )
+    # temperature data in 2D: [29][4]
+    self._temperaturedata = []
 
 
   def read(self, strcmdname, strcmdpara=""):
     """
       Thermocouple: function of reading data
     """
+    _intDataLines = 29 # 29 data measurements
+    _intDataPoint =  4 # 4 thermocouple
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
     #self._pdev.write( (strcmdname + '\r\n').encode() )
     #should send HEX instead of a string
@@ -117,13 +121,17 @@ class clsThermocouple ( clsDevice ):
     # 
     # it takes about 25 seconds to read all these data
     # 
-    byteline = self._pdev.read(734)
+    
+    _intTotalBytes = 734
+    byteline = self._pdev.read( _intTotalBytes )
     strline = byteline.hex()
     # Response
     # AA B2 80 00 00 76 01 00 AB
-    # AA B1 80 00 00 76 01 00 
-    # 13 02 00 07 12 02 00 21 11 02 00 09 66 02 00 43 AB
-    # (    T1   ) (    T2   ) (    T3   ) (    T4   )
+    # AA B1 80 00 00 76 01 00 13 02 00 07 12 02 00 21 11 02 00 09 66 02 00 43 AB
+    #                         (    T1   ) (    T2   ) (    T3   ) (    T4   )
+    # ...
+    # ...
+    #     ---- 29 such data lines in total ----
     # ...
     # ...
     # NO "\n" or "\r" in the response, all in one line!!
@@ -133,13 +141,29 @@ class clsThermocouple ( clsDevice ):
     # -- convert hex numbers into readable
  
     print ("got "+ strline)
-    for Tidx in range(4) :
-      idxbase = 34 + Tidx * 8
-      strTval = strline[idxbase+2:idxbase+4] + strline[idxbase:idxbase+2] + strline[idxbase+6:idxbase+8] 
-      #print (' THE value ' + strTval )
-      Tval = int(strTval) / 1000
-      print( ' READING current ' + self.strname + ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval )  )
-      logging.info( ' READING current ' + self.strname + ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval )  )
+    
+    # skip the first 18 bytes
+    idxbase = 18
+    for Lidx in range( _intDataLines )
+      
+      # skip the first 16 bytes in each line
+      idxbase = idxbase + 16
+
+      strTall = ' Thermocouple data point ' + str(Lidx)
+      for Tidx in range( _intDataPoint ) :
+        strTval = strline[idxbase+2:idxbase+4] + strline[idxbase:idxbase+2] + strline[idxbase+6:idxbase+8] 
+        #print (' THE value ' + strTval )
+        Tval = int(strTval) / 1000
+        strTall.append( ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) )
+
+        # every read out has 8 bytes
+        idxbase = idxbase + 8
+
+      # skip the first 2 bytes at the end of each line
+      idxbase = idxbase + 2
+
+      print( strTall )
+      logging.info( strTall )
 
     #byteline = self._pdev.readline()
     #strinclines =  byteline.hex()
