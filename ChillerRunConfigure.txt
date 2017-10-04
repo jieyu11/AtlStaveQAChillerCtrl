@@ -1,0 +1,30 @@
+#               Configuration of running the chiller 
+#
+#  [name]  - Name of device (or section) the following commands apply.
+#          - SAME name should be used in this config and other config files.
+#          -   Whitespace is considered as part of the name
+#          -   to be consistent no whitespace should be used in section names!
+#  Format: u : d #c
+#           u = variable used for running the chiller
+#           d = variable value, ex: NLoops : 3 meaning running 3 loops
+#           c = comment about what command does.
+
+#  *** Commands for the SP Scientific RC211B0 recirculating chiller. ***
+[Chiller] 
+NLoops : 10                 # number of loops to run
+StartTemperature : 20       # set the Chiller temperature when it just starts
+Temperagures : -50,20,55,20 # Temperatures to run through, it stops at the last value when all loops are over
+TimeElapse:     30,10,30,10 # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
+
+
+#  *** Commands for the booster pump ESV751N02YXC inverter (via ESVZAR0 RS-485 module.) ***
+#   Note the commands are Hex values, not text.  Every command must end with the correct
+#   two byte Cyclic Redundancy Check (CRC) value. 
+[Pump]
+
+#  *** Commands for the Omega HH314A humidity meter. ***
+[Humidity]
+
+#  *** Commands for the Omega HH147U temperature logger meter. ***
+[Thermocouple]
+
