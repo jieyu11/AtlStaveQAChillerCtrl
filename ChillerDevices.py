@@ -60,6 +60,11 @@ class clsDevice:
     else:
       logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + " with parameter " + strcmdpara )
 
+  def last(self) :
+    """
+      function to get the last read out value(s)
+    """
+    return 0
 
 class clsHumidity ( clsDevice ):
   def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None):
@@ -67,6 +72,9 @@ class clsHumidity ( clsDevice ):
       Devide: HUMIDITY, function of initialization
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
+
+    # keep the last read out value
+    _value = 0
 
   def read(self, strcmdname, strcmdpara=""):
     """
@@ -80,35 +88,39 @@ class clsHumidity ( clsDevice ):
     strline = byteline.hex()
     print( ' READING current ' + self.strname + ' value: ' + strline  )
     humval = int(strline[6:10], 16) / 10
+    _value = humval
     logging.info( ' READING current ' + self.strname + ' value: {:4.1f}%'.format( humval )  )
     # TODO: do I need to return the value??
     #return humval
+  def last(self) : 
+    return _value
 
 class clsThermocouple ( clsDevice ):
-  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None, datapoints=1):
+  def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None, ndataread=1):
     """
       Device: Thermocouple, function of initialization
-      datapoints: 1 -- 29; 
+      ndataread: 1 -- 29; 
           29 data points are obtained each time, one can chose how many to write out.
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
-    self._datapoints = datapoints
-    if datapoints < 1 :
-      self._datapoints = 1
-      logging.warning(' Cannot set data points to ' + str( datapoints ) + ' to ' + self.strname + '. Force it to 1.' )
-    elif datapoints > 29 :
-      self._datapoints = 29
-      logging.warning(' Cannot set data points to ' + str( datapoints ) + ' to ' + self.strname + '. Force it to 29.' )
+    self._intDataLines = 29 # 29 data measurements
+    self._intDataPoint =  4 # 4 thermocouple
+    self._ndataread = ndataread
+    if ndataread < 1 :
+      self._ndataread = 1
+      logging.warning(' Cannot set data points to ' + str( ndataread ) + ' to ' + self.strname + '. Force it to 1.' )
+    elif ndataread > 29 :
+      self._ndataread = 29
+      logging.warning(' Cannot set data points to ' + str( ndataread ) + ' to ' + self.strname + '. Force it to 29.' )
     # temperature data in 2D: [29][4]
-    self._temperaturedata = []
+    # initialized with 0. refer as [i][j]
+    self._temperaturedata =  [[0 for x in range( self._intDataPoint )] for y in range( self._intDataLines )]
 
 
   def read(self, strcmdname, strcmdpara=""):
     """
       Thermocouple: function of reading data
     """
-    _intDataLines = 29 # 29 data measurements
-    _intDataPoint =  4 # 4 thermocouple
     logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
     #self._pdev.write( (strcmdname + '\r\n').encode() )
     #should send HEX instead of a string
@@ -125,7 +137,9 @@ class clsThermocouple ( clsDevice ):
     _intTotalBytes = 734
     byteline = self._pdev.read( _intTotalBytes )
     strline = byteline.hex()
-    # Response
+
+    #
+    # Response: 
     # AA B2 80 00 00 76 01 00 AB
     # AA B1 80 00 00 76 01 00 13 02 00 07 12 02 00 21 11 02 00 09 66 02 00 43 AB
     #                         (    T1   ) (    T2   ) (    T3   ) (    T4   )
@@ -144,16 +158,18 @@ class clsThermocouple ( clsDevice ):
     
     # skip the first 18 bytes
     idxbase = 18
-    for Lidx in range( _intDataLines )
+    for Lidx in range( self._intDataLines )
       
       # skip the first 16 bytes in each line
       idxbase = idxbase + 16
 
       strTall = ' Thermocouple data point ' + str(Lidx)
-      for Tidx in range( _intDataPoint ) :
+      for Tidx in range( self._intDataPoint ) :
         strTval = strline[idxbase+2:idxbase+4] + strline[idxbase:idxbase+2] + strline[idxbase+6:idxbase+8] 
         #print (' THE value ' + strTval )
         Tval = int(strTval) / 1000
+        self._temperaturedata[ Lidx ][ Tidx ] = Tval
+
         strTall.append( ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) )
 
         # every read out has 8 bytes
@@ -165,26 +181,20 @@ class clsThermocouple ( clsDevice ):
       print( strTall )
       logging.info( strTall )
 
-    #byteline = self._pdev.readline()
-    #strinclines =  byteline.hex()
-    #print ("print all lines")
-    #for index, strline in enumerate(strinclines.splitlines()) :
-    #  print ('index ' + str(index) + ' line: ' + strline )
+  def last(self, lineIdx = 0) :
+    """
+      function to read the last obtained result
+      there are total of 29 readouts, define for which one to read
+    """
+      if lineIdx < 0 :
+        logging.warning( ' data line index ' + str(lineIdx) + ' < 0!! set to 0. ' )
+        lineIdx = 0
+      elif lineIdx >= self._intDataPoint :
+        logging.warning( ' data line index ' + str(lineIdx) + ' >= ' + str(self._intDataPoint) + \
+                         '!! set to ' + str(self._intDataPoint - 1) + '.' )
+        lineIdx = self._intDataPoint - 1
 
-
-    #byteline = self._pdev.readline()
-    #strinclines =  byteline.hex()
-    #print (' read thermocouple: '+strinclines )
-    #if self._pdev.inWaiting():
-    #  print ('Device is waiting ')
-
-    #byteline = self._pdev.read(10)
-    #strline = byteline.hex()
-    #print( ' READING current ' + self.strname + ' value: ' + strline  )
-    #humval = int(strline[6:10], 16) / 10
-    #logging.info( ' READING current ' + self.strname + ' value: {:4.1f}%'.format( humval )  )
-    # TODO: do I need to return the value??
-    #return humval
+      return tuple( self._intDataPoint[lineIdx] )
 
 class clsChiller ( clsDevice ):
   def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=2):
@@ -192,6 +202,8 @@ class clsChiller ( clsDevice ):
       Device: Chiller, function of initialization
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
+    # keep the last read out value
+    self._value = 0
 
 
   def read(self, strcmdname, strcmdpara=""):
@@ -222,10 +234,13 @@ class clsChiller ( clsDevice ):
           logging.error( ' Device ' + self.strname + ' returned message: ' + strline + ' not recognized. Return!' )
           return
 
+        self._value = fltvarvalue
+
         logging.info( ' READING current ' + self.strname + ' value: %4.2f ' % fltvarvalue   )
         return
-    # TODO: do I need to return the value??
-    #return humval
+
+  def last(self) :
+    return self._value
 
 class clsPump ( clsDevice ):
   def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=1):
@@ -234,6 +249,7 @@ class clsPump ( clsDevice ):
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
     self.istCRC = CycRedundCheck()
+    self._value = 0
 
 
   def read(self, strcmdname, strcmdpara=""):
@@ -275,3 +291,9 @@ class clsPump ( clsDevice ):
     strline = byteline.hex()
     print( ' READING current ' + self.strname + ' value: ' + strline )
     logging.info( ' READING current ' + self.strname + ' value: ' + strline )
+
+    # TODO: setting pump values OK???
+    self._value = float( strline )
+
+  def last(self) : 
+    return self._value
