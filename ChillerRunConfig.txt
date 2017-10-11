@@ -11,10 +11,32 @@
 
 #  *** Run parameters for the SP Scientific RC211B0 recirculating chiller. ***
 [Chiller] 
-NLoops : 10                 # number of loops to run
+NLoops : 2                  # number of loops to run
 StartTemperature : 20       # set the Chiller temperature when it just starts
 Temperagures : -50,20,55,20 # Temperatures to run through, it stops at the last value when all loops are over
-TimePeriod:     30,10,30,10 # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
+TimePeriod:      3, 2, 3, 2 # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
+StopTemperature : 20        # set the Chiller temperature when it stops
+StopCoolTime:      1        # The number of minutes Chiller stays after running for the system to cool down
+
+#[Chiller] 
+#NLoops : 10                 # number of loops to run
+#StartTemperature : 20       # set the Chiller temperature when it just starts
+#Temperagures : -50,20,55,20 # Temperatures to run through, it stops at the last value when all loops are over
+#TimePeriod:     30,10,30,10 # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
+#StopTemperature : 20        # set the Chiller temperature when it stops
+#StopCoolTime:     10        # The number of minutes Chiller stays after running for the system to cool down
+#
+#
+# 
+# adding additional loops on top of the default one:
+#   - name the section with "Chiller" in it, i.e: "ChillerX01"
+#   - with parameters of NLoops, Temperagures and TimePeriod
+# 
+# example below:
+# #[ChillerX01] 
+# #NLoops : 10                          # number of loops to run
+# #Temperagures : -40,-20,0,10,20,35,20 # Temperatures to run through, it stops at the last value when all loops are over
+# #TimePeriod:     30,30,30,30,30,30,10 # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
 
 #  *** Run parameters for boost pump. ***
 [Pump]
@@ -24,10 +46,15 @@ StopRPM : 10  # the RPM value when the pump stops after running
 
 #  *** Run parameters for the Omega HH314A humidity meter. ***
 [Humidity]
-RunUpperThreshold : 2 # in per cent, the upper limit of the humidity when running at low temperature
+StopUpperThreshold :  2 # in per cent, the upper limit of the humidity to STOP the system when running at low temperature
+WarnUpperThreshold :  5 # in per cent, the upper limit of the humidity to WARN the system when running at low temperature
+Frequency          : 10 # one data point every ? seconds
 
 #  *** Run parameters for the Omega HH147U temperature logger meter. ***
 [Thermocouple]
+IdxLiquidTemperature :   2 # index representing the Liquid Temperature, possible thermocouple of [0, 3]
 LiquidUpperThreshold :  60 # in degree C, the liquid will evaporate at around 70 C, so should keep under that value.
 LiquidLowerThreshold : -55 # in degree C, to keep the whole system safe, don't allow the temperature to go too low.
-
+Frequency            :  10 # one data point every ? seconds. Number in range [1, 29] for the current device
+DataPerRead          :  29 # number of data points every time user read the device, this number is none changeable
+                           # it is defined by the thermocouple device. Only for reference
