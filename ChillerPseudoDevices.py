@@ -19,7 +19,9 @@ class clsPseudoDevice:
     """
       function of initialization for any device
     """
+
     logging.info( ' Initialization Pseudo Device, name ' + strname )
+    self._strname = strname
 
     self._strclassname = ' < Device > '
 
@@ -28,9 +30,9 @@ class clsPseudoDevice:
       function of reading device data
     """
     if strcmdpara == "" :
-      logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self.strname )
+      logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self._strname )
     else:
-      logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self.strname + " with parameter " + strcmdpara )
+      logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self._strname + " with parameter " + strcmdpara )
 
   def last(self) :
     """
@@ -57,7 +59,7 @@ class clsPseudoHumidity ( clsPseudoDevice ):
     """
       Humidity: function of reading data
     """
-    logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self.strname )
+    logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self._strname )
 
     # random in 0. - 1., return in percentage
     self._value = random.random() * 100

@@ -134,7 +134,7 @@ class clsChillerRun :
     except:
       if self._intSystemStatus < StatusCode.ERROR : 
         self._intSystemStatus = StatusCode.ERROR
-      raise ValueError('Could not find user command: %s in %s' % (strusercommand, self._istCommand.name() ))
+      raise ValueError('Could not find user command: %s in %s' % (strusercommand, self._istCommand.cfgname() ))
 
 
 # ------------------------------------------------------------------------------
@@ -315,10 +315,10 @@ class clsChillerRun :
       intIdxTLiquid  = int  ( self._istRunCfg.get( 'Thermocouple', 'IdxLiquidTemperature' ) )
 
       if   intFrequency <              1 : 
-        logging.warning( self._strclassname + ' setting Frequency ' + intFrequency + ' < 1. Set to 1.')
+        logging.warning( self._strclassname + ' setting Frequency ' + str(intFrequency) + ' < 1. Set to 1.')
         intFrequency = 1
       elif intFrequency > intDataPerRead : 
-        logging.warning( self._strclassname + ' setting Frequency ' + intFrequency + ' > ' + \
+        logging.warning( self._strclassname + ' setting Frequency ' + str(intFrequency) + ' > ' + \
                          intDataPerRead + '. Set to ' + intDataPerRead + '.')
         intFrequency = intDataPerRead
 
@@ -378,11 +378,12 @@ class clsChillerRun :
     intFrequency      =  10 # one data point per ? seconds
 
     try: 
-      fltStopUpperLimit = self._istRunCfg.get( 'Humidity', 'StopUpperThreshold' )
-      fltWarnUpperLimit = self._istRunCfg.get( 'Humidity', 'WarnUpperThreshold' )
-      intFrequency      = self._istRunCfg.get( 'Humidity', 'Frequency' )
-      if istFrequency < 1:
+      fltStopUpperLimit = float( self._istRunCfg.get( 'Humidity', 'StopUpperThreshold' ) )
+      fltWarnUpperLimit = float( self._istRunCfg.get( 'Humidity', 'WarnUpperThreshold' ) )
+      intFrequency      = int  ( self._istRunCfg.get( 'Humidity', 'Frequency' ) )
+      if intFrequency < 1:
         logging.warning( self._strclassname + ' Humidity reading frequency ' + str( intFrequency ) + '! set to 1.')
+        intFrequency = 1
     except:
       pass
 
