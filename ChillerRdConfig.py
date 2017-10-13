@@ -73,3 +73,9 @@ class clsConfig:
       return []
     return list( self.__config[ strsection ].keys() )
  
+  def name(self):
+    """
+      function to get the input configure file name
+    """
+    return self.strname
+

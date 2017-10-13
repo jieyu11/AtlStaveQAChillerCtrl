@@ -29,53 +29,118 @@ Dictionary of abbreviations: ---------------------------------------------------
 
 
 # Import section ---------------------------------------------------------------
-# logging: https://docs.python.org/3.6/howto/logging.html
-import logging
-# config: https://docs.python.org/3.6/library/configparser.html
-import configparser
-import sys
-import time
-from datetime import datetime
+
+import logging                  # logging:             https://docs.python.org/3.6/howto/logging.html
+import configparser             # configuration:       https://docs.python.org/3.6/library/configparser.html
+import sys                      # system specific:     https://docs.python.org/3.6/library/sys.html
+import time                     # Time access:         https://docs.python.org/3.6/library/time.html
+from datetime import datetime   # Date and time types: https://docs.python.org/3.6/library/datetime.html
 from ChillerRdDevices import *
-from ChillerRdConfig import *
-from ChillerRdCmd import *
+from ChillerRdConfig  import *
+from ChillerRdCmd     import *
 
 # Global data section ----------------------------------------------------------
 
-strpyversion = "3.6"; # differ from system python version
-strconfname = 'ChillerConfig.txt'
-strcmdname = 'ChillerEquipmentCommands.txt'
- 
+strpyversion = "3.6"; 
+intGlobStatus = 0 # 0: OK, 1: WARNING, 2: ERROR, 3: FATAL
+
 # Module data section ----------------------------------------------------------
+
+
+# 
+# add customized logging level higher than INFO_LEVEL = 20 
+# 
+logging.addLevelName( 21, "DATA")
+def data(self, message, *args, **kws):
+  if self.isEnabledFor( 21 ):
+    self._log( 21, message, args, **kws) 
+logging.Logger.data = data
+
 
 # Local data section -----------------------------------------------------------
 
 # Main code section ------------------------------------------------------------
 
 # ------------------------------------------------------------------------------
+# ------------------------------- FUNCTIONS ------------------------------------
+def shutdownChillerPump () :
+  """
+    procedure to shutdown the Chiller or Pump out of:
+    1) Emergency
+    2) Runtime error
+    3) End of run
+  """
+
+  strPumpStopRPM = '10'
+  strChiStopTemp = '20'
+  try:
+    strPumpStopRPM = istRunConfig[ 'Pump' ][ 'StopRPM' ]
+    strChiStopTemp = istRunConfig[ 'Chiller' ][ 'StopTemperature' ]
+  except:
+    raise KeyError("Sections: Pump, Chiller, Key: StopRPM, StopTemperature not present in configure: %s" % \
+                   istRunConfig.name() )
+
+  # set Pump RPM to the stop value
+  # then shutdown Pump 
+  # set Chiller Temperature to the stop value
+  # then shutdown Chiller
+  strCommandDict = [ 'iRPM=' + strPumpStopRPM :            'Pump change RPM to '+strPumpStopRPM, 
+                     'iStop' :                             'Pump shutting down', 
+                     'cChangeSetpoint=' + strChiStopTemp : 'Chiller change set point to ' + strChiStopTemp, 
+                     'cStop' :                             'Chiller shutting down']
+
+  for strcommand, strlog in strCommandDict.items() :
+    strdevname, strcmdname, strcmdpara = istCommand.getdevicecommand( strcommand )
+    istDevHdl.readdevice( strdevname, strcmdname, strcmdpara)
+
+    logging.info( strlog );
+
+    # wait for 1 seconds
+    time.sleep(1) 
+
+
+def runChillerPump() :
+  """ 
+    main routine of running the Chiller and Boost Pump
+  """
+
+def recordTemperatureHumidity() :
+  """
+    recording temperatures of ambient, box, inlet, outlet and
+    the humidity inside the box
+  """
+
+# ------------------------------------------------------------------------------
 # ------------------------------- LOG ------------------------------------------
-strtime = datetime.now().strftime('%Y-%m-%d_%Hh%Mm%Ss')
-logging.basicConfig(filename='Log_'+strtime+'.txt', level=logging.DEBUG, \
+strlogfilename = 'Log_' + datetime.now().strftime('%Y-%m-%d_%Hh%Mm%Ss') + '.txt'
+logging.basicConfig(filename=strlogfilename, level=logging.DEBUG, \
                     format='%(asctime)s %(levelname)s: %(message)s', \
                     datefmt='%m/%d/%Y %I:%M:%S %p')
-
 logging.info('Python version: ' + strpyversion )
 logging.info('Starting the program.');
 
 # ------------------------------------------------------------------------------
 # ------------------------------- CONFIG ---------------------------------------
 
-istConf = clsConfig( strconfname )
+# configuration of how the devices are connected to the PC
+istConnCfg = clsConfig( 'ChillerConnectConfig.txt' )
+
+# configuration of the running routine
+istRunCfg = clsConfig( 'ChillerRunConfig.txt' )
 
 # ------------------------------------------------------------------------------
 # ------------------------------- DEVICES --------------------------------------
 
-istDevHdl = clsDevicesHandler( istConf )
+# pass the configuration of how the devices connected to the PC
+# to the device handler 
+istDevHdl = clsDevicesHandler( istConnCfg )
 
 # ------------------------------------------------------------------------------
 # ------------------------------ COMMANDS --------------------------------------
-istCommand = clsCommands( strcmdname )
-#strdevname, strcmdname = istCommand.getdevicecommand( 'hRead' )
+
+# interpretation of machine readable commands into human readable commands
+istCommand = clsCommands( 'ChillerEquipmentCommands.txt' )
+
 
 #commands = ['cStart', 'cStop' ]
 #commands = ['cSetpoint?', 'cChangeSetpoint']

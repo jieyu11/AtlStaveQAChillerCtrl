@@ -21,13 +21,13 @@ device class to read from / write to USB connected devices:
 #   return the device instance
 #
 #
-# need to install it: pip3.6 install pyserial
 import logging
 import ChillerRdConfig
-from ChillerDevices import *
-#clsChiller clsPump clsHumidity clsThermocouple
+from ChillerDevices import *       #real devices classes: Chiller Pump Humidity Thermocouple
+from ChillerPseudoDevices import * #pseudo devices classes
+
 class clsDevicesHandler:
-  def __init__(self, istConfig):
+  def __init__(self, istConfig, runPseudo = False):
     """
       function initialization of devices handler
       read in configuration
@@ -47,13 +47,25 @@ class clsDevicesHandler:
       strPort = istConfig.get(strdevname, 'Port')
       intBaud = int( istConfig.get(strdevname, 'Baud'))
       if strdevname == 'Chiller':
-        self.__dictDevices[ strdevname ] = clsChiller(strdevname, strPort, intBaud)
+        if runPseudo: 
+          self.__dictDevices[ strdevname ] = clsPseudoChiller(strdevname)
+        else:
+          self.__dictDevices[ strdevname ] = clsChiller(strdevname, strPort, intBaud)
       elif strdevname == 'Pump':
-        self.__dictDevices[ strdevname ] = clsPump(strdevname, strPort, intBaud)
+        if runPseudo: 
+          self.__dictDevices[ strdevname ] = clsPseudoPump(strdevname)
+        else:
+          self.__dictDevices[ strdevname ] = clsPump(strdevname, strPort, intBaud)
       elif strdevname == 'Humidity':
-        self.__dictDevices[ strdevname ] = clsHumidity(strdevname, strPort, intBaud)
+        if runPseudo: 
+          self.__dictDevices[ strdevname ] = clsPseudoHumidity(strdevname)
+        else:
+          self.__dictDevices[ strdevname ] = clsHumidity(strdevname, strPort, intBaud)
       elif strdevname == 'Thermocouple':
-        self.__dictDevices[ strdevname ] = clsThermocouple(strdevname, strPort, intBaud)
+        if runPseudo: 
+          self.__dictDevices[ strdevname ] = clsPseudoThermocouple(strdevname)
+        else:
+          self.__dictDevices[ strdevname ] = clsThermocouple(strdevname, strPort, intBaud)
       else:
         logging.error( ' Device name: ' + strdevname + ' not found! ')
 
@@ -82,5 +94,5 @@ class clsDevicesHandler:
     """
       function to get the list of device names that have been registered
     """
-      return tuple( self.__dictDevices.keys() )
+    return tuple ( self.__dictDevices.keys() )
 

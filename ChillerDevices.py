@@ -21,44 +21,52 @@ device class to read from / write to USB connected devices:
 #   return the device instance
 #
 #
-# need to install it: pip3.6 install pyserial
-import serial
+
+import serial  # https://github.com/pyserial/pyserial, install: pip3.6 install pyserial
 import time
 import logging
 from CycRedundCheck import *
 
+# ------------------------------------------------------------------------------
+# Class Device (base) ----------------------------------------------------------
+# Serve as base class for specific devices 
+#
 class clsDevice:
   def __init__(self, strname, strport, intbaud, bytesize, parity, stopbits, timeout):
     """
       function of initialization for any device
     """
-    print ( ' Device name ' + strname + ' PORT ' + strport + ' baud ' + str(intbaud) )
+    logging.info( ' Initialization Device, name ' + strname + ' PORT ' + strport + ' baud ' + str(intbaud) + \
+                  ' bytesize ' + str(bytesize) + ' parity ' + str( parity ) + ' stopbits ' + str( stopbits ) + \
+                  ' timeout ' + str(timeout) )
 
-    self.bolstatus = True
+    self._strclassname = ' < Device > '
+
+    self._bolopened = True
     self._pdev = serial.Serial( strport, intbaud) 
     self._pdev.bytesize = bytesize
     self._pdev.parity = parity
     self._pdev.stopbits = stopbits
     self._pdev.timeout = timeout
     # self._pdev.open()
-    self.bolstatus = self._pdev.is_open # need to check the device status first
+    self._bolopened = self._pdev.is_open # need to check the device status first
 
     self.strname = strname
     logging.info( 'Loading {:20s}'.format( strname ) + ' at port {:6s}'.format( strport ) + \
-                  ' baudrate at {:6d}'.format( intbaud ) + ' status {:b}'.format( self.bolstatus) );
+                  ' baudrate at {:6d}'.format( intbaud ) + ' status {:b}'.format( self._bolopened) );
 
   def __str__(self):
     print( 'Device {:20s}'.format( strname ) + ' at port {:6s}'.format( strport ) + \
-           ' baudrate at {:6d}'.format( intbaud ) + ' status {:b}'.format( self.bolstatus) );
+           ' baudrate at {:6d}'.format( intbaud ) + ' status {:b}'.format( self._bolopened) );
 
   def read(self, strcmdname, strcmdpara=""):
     """
       function of reading device data
     """
     if strcmdpara == "" :
-      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+      logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self.strname )
     else:
-      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + " with parameter " + strcmdpara )
+      logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self.strname + " with parameter " + strcmdpara )
 
   def last(self) :
     """
@@ -66,35 +74,50 @@ class clsDevice:
     """
     return 0
 
+
+# ------------------------------------------------------------------------------
+# Class Humidity (inherited Device) --------------------------------------------
 class clsHumidity ( clsDevice ):
   def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None):
     """
-      Devide: HUMIDITY, function of initialization
+      Devide: Humidity, function of initialization
     """
+
+
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
 
-    # keep the last read out value
-    _value = 0
+    self._strclassname = ' < Humidity > '
+
+    # keep the last read out value, initialized with 100%
+    self._value = 100
 
   def read(self, strcmdname, strcmdpara=""):
     """
       Humidity: function of reading data
     """
-    logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
-    # TODO: here should test if the device is connected already!!!
+    logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self.strname )
+
+    if self._bolopened is False: 
+      logging.error( self._strclassname + ' device ' + self.strname + ' is still closed! Return! ' )
+      return
+
     self._pdev.write( (strcmdname + '\r\n').encode() )
+
     # read 10 bits
     byteline = self._pdev.read(10)
     strline = byteline.hex()
     print( ' READING current ' + self.strname + ' value: ' + strline  )
     humval = int(strline[6:10], 16) / 10
-    _value = humval
+    self._value = humval
     logging.info( ' READING current ' + self.strname + ' value: {:4.1f}%'.format( humval )  )
     # TODO: do I need to return the value??
     #return humval
-  def last(self) : 
-    return _value
 
+  def last(self) : 
+    return self._value
+
+# ------------------------------------------------------------------------------
+# Class Thermocouple (inherited Device) ----------------------------------------
 class clsThermocouple ( clsDevice ):
   def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=None, ndataread=1):
     """
@@ -102,6 +125,9 @@ class clsThermocouple ( clsDevice ):
       ndataread: 1 -- 29; 
           29 data points are obtained each time, one can chose how many to write out.
     """
+
+    self._strclassname = ' < Thermo > '
+
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
     self._intDataLines = 29 # 29 data measurements
     self._intDataPoint =  4 # 4 thermocouple
@@ -158,7 +184,7 @@ class clsThermocouple ( clsDevice ):
     
     # skip the first 18 bytes
     idxbase = 18
-    for Lidx in range( self._intDataLines )
+    for Lidx in range( self._intDataLines ) :
       
       # skip the first 16 bytes in each line
       idxbase = idxbase + 16
@@ -186,15 +212,15 @@ class clsThermocouple ( clsDevice ):
       function to read the last obtained result
       there are total of 29 readouts, define for which one to read
     """
-      if lineIdx < 0 :
-        logging.warning( ' data line index ' + str(lineIdx) + ' < 0!! set to 0. ' )
-        lineIdx = 0
-      elif lineIdx >= self._intDataPoint :
-        logging.warning( ' data line index ' + str(lineIdx) + ' >= ' + str(self._intDataPoint) + \
-                         '!! set to ' + str(self._intDataPoint - 1) + '.' )
-        lineIdx = self._intDataPoint - 1
+    if lineIdx < 0 :
+      logging.warning( ' data line index ' + str(lineIdx) + ' < 0!! set to 0. ' )
+      lineIdx = 0
+    elif lineIdx >= self._intDataPoint :
+      logging.warning( ' data line index ' + str(lineIdx) + ' >= ' + str(self._intDataPoint) + \
+                       '!! set to ' + str(self._intDataPoint - 1) + '.' )
+      lineIdx = self._intDataPoint - 1
 
-      return tuple( self._intDataPoint[lineIdx] )
+    return tuple( self._intDataPoint[lineIdx] )
 
 class clsChiller ( clsDevice ):
   def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=2):
@@ -202,6 +228,9 @@ class clsChiller ( clsDevice ):
       Device: Chiller, function of initialization
     """
     super().__init__(strname, strport, intbaud, bytesize, parity, stopbits, timeout)
+
+    self._strclassname = ' < Chiller > '
+
     # keep the last read out value
     self._value = 0
 
