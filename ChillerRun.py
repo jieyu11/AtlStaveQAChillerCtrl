@@ -18,6 +18,9 @@ Class clsChillerRun
 # Import section ---------------------------------------------------------------
 
 import logging
+import logging.handlers
+
+import configparser
 DataLevel = 21
 logging.addLevelName( DataLevel, "DATA")
 def data(self, message, *args, **kws):
@@ -170,7 +173,7 @@ class clsChillerRun :
       2) Runtime error (status = ERROR or PANIC)
       3) End of run (status = OK or WARNING)
     """
-
+    print("**********     BEGINNING SHUTDOWN")
     strPumpStopRPM = '10'
     strChiStopTemp = '20'
     try:
@@ -255,7 +258,7 @@ class clsChillerRun :
       logging.info( ' Chiller, Pump running at loop no. ' + str(iloop) )
       for itemp in range(intNTemperature) :
         # changing the Chiller Temperature to a corresponding value
-        logging.info( ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
+        #logging.info( ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
         self.sendcommand( 'cChangeSetpoint=' + strTemperatureList[itemp] )
 
         logging.info( ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
@@ -443,18 +446,20 @@ class clsChillerRun :
     mpList.append( mp.Process(target = self.recordTemperature) )
     mpList.append( mp.Process(target = self.recordHumidity) )
     mpList.append( mp.Process(target = self.runChillerPump) )
-
+    
+    print("**********     BEGINNING PROCESSES")
     for p in mpList:
       p.start()
-    
-    # wait until Chiller Pump running finishes
-    for idx in range( len(mpList) ) : 
-      mpList[idx].join()
 
-    #mpList[2].join()
+    print("**********     WAITING FOR SHUTDOWN TRIGGER")
+  
+    mpList[2].join()
 
     # shutdown Chiller and Pump
     self.shutdownChillerPump()
+    
+    print("**********     CHILLER SHUTDOWN, TERMINATING REMAINING PROCESSES")
+
 
     # TODO: use a better way to stop recording ???
     mpList[0].terminate()
@@ -469,13 +474,13 @@ def main():
     test running the whole routine
   """
   
-  logging.basicConfig(filename='test.log', level=logging.INFO, \
+  logging.basicConfig(#filename='test.log',
+                      stream=sys.stdout, level=logging.INFO, \
                       format='%(asctime)s %(levelname)s: %(message)s', \
                       datefmt='%m/%d/%Y %I:%M:%S %p')
 
   logging.addLevelName( 21, "DATA")
-  logging.Logger.data = data
-
+  logging.Logger.data = data 
 
   #runPseudo = False
   runPseudo = True
@@ -485,6 +490,7 @@ def main():
   tc.runRoutine()
 
 
-if __name__ == '__main__' :
+
+if __name__ == '__main__' : 
   main()
 
