@@ -18,7 +18,6 @@ Class clsChillerRun
 # Import section ---------------------------------------------------------------
 
 import logging
-import logging.handlers
 
 import configparser
 DataLevel = 21
@@ -27,12 +26,6 @@ def data(self, message, *args, **kws):
   if self.isEnabledFor( DataLevel ):
     self._log( DataLevel, message, args, **kws) 
 logging.Logger.data = data
-
-#def data(self, message, *args, **kws):
-#    self.log(21, message, *args, **kws) 
-#logging.Logger.data = data
-
-# need setattr ?????
 
 import time
 import sys
@@ -43,6 +36,7 @@ from ChillerRdCmd     import *
 # https://docs.python.org/3.6/library/multiprocessing.html
 #from multiprocessing import Process, Value
 import multiprocessing as mp
+from multiprocessing import Process, Value
 
 from enum import IntEnum
 from functools import total_ordering
@@ -58,7 +52,9 @@ class StatusCode (IntEnum) :
     if self.__class__ is other.__class__:
       return self.value < other.value
     return NotImplemented
-
+'''
+Also I am adding in a global called intStatusCode, it will do the same thing as the StatusCode Class
+'''
 
 # ------------------------------------------------------------------------------
 # Class ChillerRun -------------------------------------------------------------
@@ -130,7 +126,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: sendcommand --------------------------------------------------------
-  def sendcommand(self, strusercommand) :
+  def sendcommand(self, strusercommand,intStatusCode) :
     """
       function to send command to any of a device
     """
@@ -138,25 +134,27 @@ class clsChillerRun :
       strdevname, strcmdname, strcmdpara = self._istCommand.getdevicecommand( strusercommand )
       self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara)
     except:
-      if self._intSystemStatus < StatusCode.ERROR : 
+      if self._intSystemStatus < StatusCode.ERROR or intStatusCode.value < 2: 
         self._intSystemStatus = StatusCode.ERROR
+        intStatusCode.value = 2
       raise ValueError('Could not find user command: %s in %s' % (strusercommand, self._istCommand.cfgname() ))
 
 
 # ------------------------------------------------------------------------------
 # Function: Shut down Chiller Pump in emergency --------------------------------
-  def eShutdownChillerPump (self) :
+  def eShutdownChillerPump (self,intStatusCode) :
     """
       Emergency Shut down
     """
     logging.info( self._strclassname + ' Chiller Pump Need to shut down due to emergency!!! ')
     self._intSystemStatus = StatusCode.FATAL
-    self.shutdownChillerPump()
+    intStatusCode.value = 4
+    self.shutdownChillerPump(intStatusCode)
 
 
 # ------------------------------------------------------------------------------
 # Function: Shut down Chiller Pump ---------------------------------------------
-  def shutdownChillerPump (self) :
+  def shutdownChillerPump (self,intStatusCode) :
     """
       procedure to shutdown the Chiller and Pump:
       * set Chiller Temperature to the stop value
@@ -180,9 +178,9 @@ class clsChillerRun :
       strPumpStopRPM = self._istRunCfg.get( 'Pump', 'StopRPM' )
       strChiStopTemp = self._istRunCfg.get( 'Chiller', 'StopTemperature' )
     except:
-      if self._intSystemStatus < StatusCode.WARNING :
+      if self._intSystemStatus < StatusCode.WARNING or intStatusCode.value < 1:
         self._intSystemStatus = StatusCode.WARNING
-
+        intStatusCode.value = 1
       raise KeyError("Sections: Pump, Chiller, Key: StopRPM, StopTemperature not present in configure: %s" % \
                      self._istRunCfg.name() )
 
@@ -198,7 +196,7 @@ class clsChillerRun :
 
     for strcommand, strlog in strCommandDict.items() :
       # send the command to the corresponding device
-      self.sendcommand( strcommand )
+      self.sendcommand( strcommand, intStatusCode )
 
       # write information into logging file
       logging.info( strlog );
@@ -207,7 +205,7 @@ class clsChillerRun :
       time.sleep(1) 
 
       # for non emergency shutdown, first cool down the chiller before shutting down the whole system 
-      if self._intSystemStatus < StatusCode.FATAL and 'cChangeSetpoint' in strcommand :
+      if self._intSystemStatus < StatusCode.FATAL or intStatusCode.value < 4 and 'cChangeSetpoint' in strcommand :
         intTimeCool = 600 # in seconds 
         try : 
           intTimeCool = 60 * int( self._istRunCfg.get( 'Chiller', 'StopCoolTime' ) ) # parameter in minutes
@@ -216,11 +214,12 @@ class clsChillerRun :
         logging.info( 'Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' ) 
         time.sleep( intTimeCool )
 
-    self._intSystemStatus = StatusCode.DONE
+        self._intSystemStatus = StatusCode.DONE
+        intStatusCode.value = 5
 
 # ------------------------------------------------------------------------------
 # Function: run one loop of Chiller Pump ---------------------------------------
-  def runChillerPumpOneLoop(self, name = "Chiller") :
+  def runChillerPumpOneLoop(self,intStatusCode, name = "Chiller") :
     """ 
       main routine of every loop running the Chiller and Boost Pump
       set the name parameter if not running the default "Chiller"
@@ -259,7 +258,7 @@ class clsChillerRun :
       for itemp in range(intNTemperature) :
         # changing the Chiller Temperature to a corresponding value
         #logging.info( ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
-        self.sendcommand( 'cChangeSetpoint=' + strTemperatureList[itemp] )
+        self.sendcommand( 'cChangeSetpoint=' + strTemperatureList[itemp],intStatusCode )
 
         logging.info( ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
         for itime in range( int(strTimePeriodList[itemp]) ):
@@ -270,17 +269,17 @@ class clsChillerRun :
           #
           for i in range( 60 ):
              # check second by second the status of the system
-             if self._intSystemStatus > StatusCode.ERROR: return 
+             if self._intSystemStatus > StatusCode.ERROR or intStatusCode.value > 2: return 
              time.sleep( 1 ) # in seconds
 
 
 # ------------------------------------------------------------------------------
 # Function: run Chiller Pump ---------------------------------------------------
-  def runChillerPump(self) :
+  def runChillerPump(self,intStatusCode) :
     """
       main routine to run Chiller Pump with user set loops
     """
-
+    print("**********     BEGIN CHILLER PUMP LOOP")
     strPumpRunRPM = '22'
     try:
       strPumpRunRPM = self._istRunCfg.get( 'Pump', 'RunRPM' )
@@ -292,20 +291,19 @@ class clsChillerRun :
     # Unlock before sending commands to inverter (Pump)
     # do it once at a beginning of a run
     #
-    self.sendcommand( 'iUnlockDrive' )
-    self.sendcommand( 'iUnlockParameter' )
-    self.sendcommand( 'iRPM=' + strPumpRunRPM )
+    self.sendcommand( 'iUnlockDrive',intStatusCode )
+    self.sendcommand( 'iUnlockParameter' ,intStatusCode)
+    self.sendcommand( 'iRPM=' + strPumpRunRPM ,intStatusCode)
  
     for strsectionname in [ name for name in self._istRunCfg.sections() if "Chiller" in name ]:
-      self.runChillerPumpOneLoop( name = strsectionname )
+      self.runChillerPumpOneLoop( intStatusCode, name = strsectionname)
 
-      # constantly check the status of the system
-      if self._intSystemStatus > StatusCode.ERROR: return 
- 
+      # constantly check the status of the system 
+      if self._intSystemStatus > StatusCode.ERROR or intStatusCode.value > 2: return 
 
 # ------------------------------------------------------------------------------
 # Function: record temperature -------------------------------------------------
-  def recordTemperature(self) :
+  def recordTemperature(self,intStatusCode) :
     """
       recording temperatures of ambient, box, inlet, outlet from the thermocouples
     """
@@ -343,15 +341,17 @@ class clsChillerRun :
       logging.error( self._strclassname + ' Thermocouple not found in device list! ')
       return
 
+
+
     #
     # keep reading data until the process is killed or 
     # kill the process if the global status is more serious than an ERROR
     #
-    while (self._intSystemStatus <= StatusCode.ERROR) : 
+    while (self._intSystemStatus <= StatusCode.ERROR or intStatusCode.value <= 2) : 
       #
       # read thermocouple data, every read takes ~25 seconds for 29 data points
       # 
-      self.sendcommand( 'tRead' )
+      self.sendcommand( 'tRead',intStatusCode )
 
       for idata in range( intDataPerRead ) :
         if idata % intDataPerRead == 0 : 
@@ -368,18 +368,20 @@ class clsChillerRun :
             logging.error( self._strclassname + ' liquid temperature '+ self._fltTempLiquid +
                            ' < lower limit ' + fltTLowerLimit + '! Return! ')
             self._intSystemStatus = StatusCode.PANIC
+            intStatusCode.value = 3
+
           if self._fltTempLiquid > fltTUpperLimit:
             logging.error( self._strclassname + ' liquid temperature '+ self._fltTempLiquid +
                            ' > upper limit ' + fltTUpperLimit + '! Return! ')
             self._intSystemStatus = StatusCode.PANIC
-
+            intStatusCode.value = 3
     # after finishing running
     logging.info( self._strclassname + ' Temperature finished recording. ' )
 
 # ------------------------------------------------------------------------------
 # Function: record humidity ----------------------------------------------------
 
-  def recordHumidity(self) :
+  def recordHumidity(self,intStatusCode) :
     """
       recording the humidity inside the box
     """
@@ -404,8 +406,8 @@ class clsChillerRun :
       return
 
 
-    while( self._intSystemStatus <= StatusCode.ERROR ) :
-      self.sendcommand( 'hRead' )
+    while( self._intSystemStatus <= StatusCode.ERROR or intStatusCode.value <= 2 ) :
+      self.sendcommand( 'hRead',intStatusCode )
       fltHumidity = istHumidity.last()
       logging.info( '<DATA> Humidity {:4.1f}'.format( fltHumidity ) )
       if self._fltTempLiquid < 0.:
@@ -415,15 +417,15 @@ class clsChillerRun :
                          ' box humidity ' + str( fltHumidity ) + '% > ' + str( fltStopUpperLimit ) + 
                          '% upper limit! Return! ')
           self._intSystemStatus = StatusCode.PANIC
+          intStatusCode.value = 3
           return
         elif fltHumidity > fltWarnUpperLimit : 
           logging.warning( self._strclassname + ' at liquid temperature '+ str( self._fltTempLiquid ) +
                            ' box humidity ' + str( fltHumidity ) + '% > ' + str( fltStopUpperLimit ) + '%')
           self._intSystemStatus = StatusCode.ERROR
-
+          intStatusCode.value = 3
 
       time.sleep( intFrequency - 1 )
-
     logging.info( self._strclassname + ' Humidity finished recording. ' )
 
 
@@ -432,43 +434,46 @@ class clsChillerRun :
       Run main routine
     """
     # start Chiller Pump, it they haven't started
-    self.sendcommand( 'cStart' )
+    intStatusCode = Value('i',0)
+    self.sendcommand( 'cStart' ,intStatusCode)
     time.sleep(1)
-    self.sendcommand( 'iStart' )
+    self.sendcommand( 'iStart',intStatusCode )
     time.sleep(1)
 
+    print("**********     STATUS(self): " + str(self._intSystemStatus))
+    print("**********     STATUS(globalcode): " +str(intStatusCode.value))
+    
     #
     # run preset Chiller and Pump routine using two separated processing
     # one for Chiller Pump running,
     # the other for Temperature and Humidity recording
     # 
+   
+
     mpList = []
-    mpList.append( mp.Process(target = self.recordTemperature) )
-    mpList.append( mp.Process(target = self.recordHumidity) )
-    mpList.append( mp.Process(target = self.runChillerPump) )
+    mpList.append( mp.Process(target = self.recordTemperature, args =(intStatusCode,)) )
+    mpList.append( mp.Process(target = self.recordHumidity, args =(intStatusCode,)) )
+    mpList.append( mp.Process(target = self.runChillerPump, args =(intStatusCode,)) )
     
     print("**********     BEGINNING PROCESSES")
     for p in mpList:
       p.start()
 
-    print("**********     WAITING FOR SHUTDOWN TRIGGER")
-  
+    print("**********     WAITING FOR SHUTDOWN TRIGGER") 
     mpList[2].join()
 
+
     # shutdown Chiller and Pump
-    self.shutdownChillerPump()
+    self.shutdownChillerPump(intStatusCode)
     
     print("**********     CHILLER SHUTDOWN, TERMINATING REMAINING PROCESSES")
-
-
-    # TODO: use a better way to stop recording ???
+    # stops the Temperature and Humidity recorders
     mpList[0].terminate()
     mpList[1].terminate()
 
+    print("**********     ALL PROCESSES ARE SHUTDOWN! HAVE A NICE DAY!")
 
-#def data(self, message, *args, **kws):
-#    self.log(21, message, *args, **kws) 
-#
+
 def main():
   """
     test running the whole routine
@@ -480,12 +485,12 @@ def main():
                       datefmt='%m/%d/%Y %I:%M:%S %p')
 
   logging.addLevelName( 21, "DATA")
-  logging.Logger.data = data 
-
+  logging.Logger.data = data  
+  
   #runPseudo = False
   runPseudo = True
   #if '-pseudo' in sys.argv[1:]
-  #  runPseudo = True
+    #runPseudo = True
   tc = clsChillerRun( runPseudo )
   tc.runRoutine()
 
