@@ -196,7 +196,8 @@ class clsThermocouple ( clsDevice ):
         Tval = int(strTval) / 1000
         self._temperaturedata[ Lidx ][ Tidx ] = Tval
 
-        strTall.append( ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) )
+        #strTall.append( ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) )
+        strTall += ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) 
 
         # every read out has 8 bytes
         idxbase = idxbase + 8
@@ -220,7 +221,7 @@ class clsThermocouple ( clsDevice ):
                        '!! set to ' + str(self._intDataPoint - 1) + '.' )
       lineIdx = self._intDataPoint - 1
 
-    return tuple( self._intDataPoint[lineIdx] )
+    return tuple( self._temperaturedata[lineIdx] )
 
 class clsChiller ( clsDevice ):
   def __init__(self, strname, strport, intbaud, bytesize=8, parity='N', stopbits=1, timeout=2):
