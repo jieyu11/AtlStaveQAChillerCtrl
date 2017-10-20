@@ -27,7 +27,7 @@ from ChillerDevices import *       #real devices classes: Chiller Pump Humidity 
 from ChillerPseudoDevices import * #pseudo devices classes
 
 class clsDevicesHandler:
-  def __init__(self, istConfig, runPseudo = False):
+  def __init__(self, istConfig, strdevnamelist, runPseudo = False):
     """
       function initialization of devices handler
       read in configuration
@@ -41,9 +41,15 @@ class clsDevicesHandler:
     for strdevname in istConfig.sections() : 
       # a device should have a connected port (lower case!)
       # otherwise skip the section, not device
+
+      if strdevnamelist is not None  and  strdevname not in strdevnamelist: 
+        logging.debug('Devices Handler: ' + strdevname + ' skipped. ')
+        continue;
+
       if 'port' not in istConfig.keys( strdevname ) :
         continue
 
+      print ('Device name: ' + strdevname )
       strPort = istConfig.get(strdevname, 'Port')
       intBaud = int( istConfig.get(strdevname, 'Baud'))
       if strdevname == 'Chiller':
@@ -55,7 +61,8 @@ class clsDevicesHandler:
         if runPseudo: 
           self.__dictDevices[ strdevname ] = clsPseudoPump(strdevname)
         else:
-          self.__dictDevices[ strdevname ] = clsPump(strdevname, strPort, intBaud)
+          #!! self.__dictDevices[ strdevname ] = clsPump(strdevname, strPort, intBaud)
+          self.__dictDevices[ strdevname ] = clsPseudoPump(strdevname)
       elif strdevname == 'Humidity':
         if runPseudo: 
           self.__dictDevices[ strdevname ] = clsPseudoHumidity(strdevname)

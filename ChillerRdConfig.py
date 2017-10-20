@@ -19,7 +19,7 @@ reading configuration file
 import configparser
 import logging
 class clsConfig:
-  def __init__(self, strconfname):
+  def __init__(self, strconfname, strdevnamelist):
     """
       function of initialization
     """
@@ -33,6 +33,10 @@ class clsConfig:
 
     # fixing the inline comment problem
     for strsection in self.__config.sections():
+      if strdevnamelist is not None  and  strsection not in strdevnamelist: 
+        logging.debug('Configure: ' + strsection + ' skipped. ')
+        continue;
+
       logging.info('Configure: ' + strsection)
       for strkey in self.__config[strsection]:
         strvalcomment = self.__config[strsection][strkey]

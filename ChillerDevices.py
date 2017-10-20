@@ -180,7 +180,7 @@ class clsThermocouple ( clsDevice ):
     # -- use the next 4 x 4 bytes for T1 -- T4 temperatures
     # -- convert hex numbers into readable
  
-    print ("got "+ strline)
+    logging.debug ("got "+ strline)
     
     # skip the first 18 bytes
     idxbase = 18
@@ -205,7 +205,7 @@ class clsThermocouple ( clsDevice ):
       # skip the first 2 bytes at the end of each line
       idxbase = idxbase + 2
 
-      print( strTall )
+      #print( strTall )
       logging.info( strTall )
 
   def last(self, lineIdx = 0) :
