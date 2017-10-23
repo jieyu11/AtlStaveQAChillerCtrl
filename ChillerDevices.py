@@ -106,10 +106,10 @@ class clsHumidity ( clsDevice ):
     # read 10 bits
     byteline = self._pdev.read(10)
     strline = byteline.hex()
-    print( ' READING current ' + self.strname + ' value: ' + strline  )
+    logging.debug( ' READING current ' + self.strname + ' value: ' + strline  )
     humval = int(strline[6:10], 16) / 10
     self._value = humval
-    logging.info( ' READING current ' + self.strname + ' value: {:4.1f}%'.format( humval )  )
+    #logging.info( ' READING current ' + self.strname + ' value: {:4.1f}%'.format( humval )  )
     # TODO: do I need to return the value??
     #return humval
 
@@ -147,12 +147,12 @@ class clsThermocouple ( clsDevice ):
     """
       Thermocouple: function of reading data
     """
-    logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+    logging.debug( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
     #self._pdev.write( (strcmdname + '\r\n').encode() )
     #should send HEX instead of a string
     self._pdev.write( bytes.fromhex(strcmdname) )
 
-    print ('Start reading thermocouple reader!!! ' + strcmdname )
+    #print ('Start reading thermocouple reader!!! ' + strcmdname )
     # 734 bytes combining (head) + 29 lines of (data)
     # head: AA B2 80 00 00 76 01 00 AB
     # data: AA B1 80 00 00 76 01 00 13 02 00 07 12 02 00 21 11 02 00 09 66 02 00 43 AB
@@ -189,7 +189,7 @@ class clsThermocouple ( clsDevice ):
       # skip the first 16 bytes in each line
       idxbase = idxbase + 16
 
-      strTall = ' Thermocouple data point ' + str(Lidx)
+      strTall = '<DATA> ThermoDaPt ' + str(Lidx)
       for Tidx in range( self._intDataPoint ) :
         strTval = strline[idxbase+2:idxbase+4] + strline[idxbase:idxbase+2] + strline[idxbase+6:idxbase+8] 
         #print (' THE value ' + strTval )
@@ -197,7 +197,7 @@ class clsThermocouple ( clsDevice ):
         self._temperaturedata[ Lidx ][ Tidx ] = Tval
 
         #strTall.append( ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) )
-        strTall += ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) 
+        strTall += ' T{:1d}: {:6.3f}'.format((Tidx+1), Tval ) 
 
         # every read out has 8 bytes
         idxbase = idxbase + 8
@@ -241,10 +241,10 @@ class clsChiller ( clsDevice ):
       Chiller: function of reading data
     """
     if strcmdpara == "" :
-      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
+      logging.debug( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
       self._pdev.write( (strcmdname + '\r\n').encode() )
     else :
-      logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + " with parameter " + strcmdpara)
+      logging.debug( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + " with parameter " + strcmdpara)
       self._pdev.write( (strcmdname + strcmdpara + '\r\n').encode() )
 
     byteline = self._pdev.readline()

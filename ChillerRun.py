@@ -14,20 +14,15 @@ Class clsChillerRun
   
   Dictionary of abbreviations: 
 """
-
+Version = 'B1'
+pyVersion = '3.6'
 
 # ------------------------------------------------------------------------------
 # Import section ---------------------------------------------------------------
 
 import logging
 import logging.handlers
-
 import configparser
-
-def data(self, message, *args, **kws):
-  if self.isEnabledFor( DataLevel ):
-    self._log( DataLevel, message, args, **kws) 
-
 import time
 import sys
 from ChillerRdDevices import *
@@ -35,13 +30,14 @@ from ChillerRdConfig  import *
 from ChillerRdCmd     import *
 
 # https://docs.python.org/3.6/library/multiprocessing.html
-#from multiprocessing import Process, Value
-import multiprocessing as mp
 from multiprocessing import Process, Value
+import multiprocessing as mp
 
 from enum import IntEnum
 from functools import total_ordering
 @total_ordering
+
+
 class StatusCode (IntEnum) :
   OK      = 0  # -> all devices are fine
   WARNING = 1  # -> e.g. Humidity reading not working
@@ -63,7 +59,17 @@ def intro():
     A List of things printed when the program runs
   """
   print("------------------------- CHILLER CONTROL -------------------------")
+  print("Python Version: %s, Program Version: %s" % (pyVersion,Version))
 
+
+
+# -----------------------------------------------------------------------------
+# Log File --------------------------------------------------------------------
+
+logName = str(time.strftime( '%Y-%m-%d_%I-%M%p_',time.localtime()))+'ChillerRun.log'
+
+print("**********     Creating Log " + logName)
+loggingLevel = logging.INFO
 
 
 # -----------------------------------------------------------------------------
@@ -73,23 +79,23 @@ def procListener (queue) :
     Process that reads the queue and then puts thing to a file
   """
 
-  logging.addLevelName( 21, "DATA")
-  logging.Logger.data = data 
+  #logging.addLevelName( 21, "DATA")
+  #logging.Logger.data = data 
 
-  root = logging.getLogger()
-  h = logging.handlers.RotatingFileHandler('test.log','a',1000000,10)
-  f = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-  h.setFormatter(f)
-  root.addHandler(h)
+  root = logging.getLogger()# Defines the logger
+  h = logging.handlers.RotatingFileHandler(logName,'a',1000000,10) # Creates a rotating file handler to control how the queue works
+  f = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')# Creates format of all logged material
+  h.setFormatter(f)# Sets format of the handler
+  root.addHandler(h) #Adds the handler to the logger
   while True:
     try:
+      # This sets conditions to quit the procListener process when the listener recieves None in the queue.
       record = queue.get()
       if record is None:
         break
-      
-      logger = logging.getLogger(record.name)
-      logger.handle(record)
-      print(record.asctime + " "+ record.levelname+" "+record.message)
+      logger = logging.getLogger(record.name) #This finds the name of the log in the queue
+      logger.handle(record) # Handles the log, printing it to the logName File
+      print(record.asctime + " "+ record.levelname+" "+record.message) # Prints the log to the screen
     except Exception:
       import sys, traceback
       print('Whoops! Problem:', file=sys.stderr)
@@ -101,10 +107,37 @@ def p_config(queue) :
   """
        function that must be present in any process that uses the logger
   """
-  h = logging.handlers.QueueHandler(queue)
-  root = logging.getLogger()
-  root.addHandler(h)
-  root.setLevel(logging.INFO) # This sets what level is logged in each process
+  h = logging.handlers.QueueHandler(queue) #Connects the handler to the main queue
+  root = logging.getLogger() #Creates a new logging process root
+  root.addHandler(h) # Connects the logging process to the handler
+  root.setLevel(loggingLevel) # This sets what level is logged in each process
+
+# -----------------------------------------------------------------------------
+# Function User Commands -------------------------------------------------
+
+def procUserCommands(queue,intStatusCode,procList):
+  while intStatusCode.value < StatusCode.DONE:
+    print(" ")
+    print("__Commands_During_Operation__")
+    print("kill = stops all processes, does not shutdown pump or chiller")
+    print("shutdown = sets the system into a shutdown mode")
+    print("status = shows current status of all running processes")
+    print(" ")
+
+    val = input("Input::: \n")
+    if val == 'kill':
+      processVal = input("WARNING! This just kills the program! Proceed? (y/n) \n")
+      if processVal == 'y':
+        intStatusCode.value = StatusCode.DONE
+
+    if val == 'shutdown':
+      intStatusCode.value = StatusCode.PANIC
+    
+
+    if val == 'status':
+      for p in procList:
+        print("**********     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))          
+    
 
 # ------------------------------------------------------------------------------
 # Class ChillerRun -------------------------------------------------------------
@@ -134,13 +167,13 @@ class clsChillerRun :
 # ------------------------------------------------------------------------------
 # Function: Initialization -----------------------------------------------------
   def init(self, strdevnamelist, runPseudo = False) :
-
+    '''
+    This is initialized at the start of each running process. In each process the
+    devices are stated in the initialization and their configuration occurs. If 
+    this is not done in the local process or done in a separate process the
+    devices will not communicate!!!
+    '''
     self._strclassname = '< RUNNING >'
-    #
-    # Global status of the while system
-    #
-
-    self._intSystemStatus = StatusCode.OK
 
     #
     # configuration of how the devices are connected to the PC
@@ -179,29 +212,26 @@ class clsChillerRun :
 # Function: sendcommand --------------------------------------------------------
   def sendcommand(self, strusercommand,intStatusCode) :
     """
-      function to send command to any of a device
+      function to send command to any of the devices
     """
     try:
       strdevname, strcmdname, strcmdpara = self._istCommand.getdevicecommand( strusercommand )
       logging.debug('sending command %s %s %s' % (strdevname, strcmdname, strcmdpara) )
       self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara)
     except:
-      if self._intSystemStatus < StatusCode.ERROR or intStatusCode.value < 2: 
-        self._intSystemStatus = StatusCode.ERROR
+      if intStatusCode.value < StatusCode.Error:  
         intStatusCode.value = 2
       raise ValueError('Could not find user command: %s in %s' % (strusercommand, self._istCommand.cfgname() ))
-
 
 # ------------------------------------------------------------------------------
 # Function: Shut down Chiller Pump in emergency --------------------------------
   def eShutdownChillerPump (self,queue,intStatusCode) :
     """
-      Emergency Shut down
+      Emergency Shut down, HAS NOT BEEN USED OR TESTED THUSFAR
     """
     p_config(queue)
-    logging.info( self._strclassname + ' Chiller Pump Need to shut down due to emergency!!! ')
-    self._intSystemStatus = StatusCode.FATAL
-    intStatusCode.value = 4
+    logging.info( self._strclassname + ' Chiller Pump Need to shut down due to emergency!!! ') 
+    intStatusCode.value = StatusCode.FATAL
     self.shutdownChillerPump(intStatusCode)
 
 
@@ -224,7 +254,7 @@ class clsChillerRun :
       2) Runtime error (status = ERROR or PANIC)
       3) End of run (status = OK or WARNING)
     """
-    print("**********     BEGINNING SHUTDOWN")
+    #print("**********     BEGINNING SHUTDOWN     **********")
     strPumpStopRPM = '10'
     strChiStopTemp = '20'
     try:
@@ -265,8 +295,7 @@ class clsChillerRun :
           pass
         logging.info( 'Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' ) 
         time.sleep( intTimeCool )
-
-        #self._intSystemStatus = StatusCode.DONE
+ 
         intStatusCode.value = StatusCode.DONE
 
 # ------------------------------------------------------------------------------
@@ -310,10 +339,8 @@ class clsChillerRun :
     for iloop in range(intChiNLoops) :
       logging.info( ' Chiller, Pump running at loop no. ' + str(iloop) )
       for itemp in range(intNTemperature) :
-        # changing the Chiller Temperature to a corresponding value
-        #logging.info( ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
+        # changing the Chiller Temperature to a corresponding value 
         self.sendcommand(self, 'cChangeSetpoint=' + strTemperatureList[itemp],intStatusCode )
-
         logging.info( ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
         for itime in range( int(strTimePeriodList[itemp]) ):
           logging.info( ' Chiller waiting at ' + str(itime) + 'th minute.' )
@@ -323,7 +350,7 @@ class clsChillerRun :
           #
           for i in range( 60 ):
              # check second by second the status of the system
-             if self._intSystemStatus > StatusCode.ERROR or intStatusCode.value > 2: return 
+             if intStatusCode.value > StatusCode.ERROR: return 
              time.sleep( 1 ) # in seconds
 
 
@@ -333,11 +360,13 @@ class clsChillerRun :
     """
       main routine to run Chiller Pump with user set loops
     """
+    # Configures the processes handler so that it will log
     p_config(queue)
+
+    # Configures the connected devices and their corresponding ports
     self.init(self,["Chiller","Pump"], runPseudo = False)
 
-
-    logging.info("---------- Beginning Chiller Pump Loop ----------") 
+    logging.info("----------     Beginning Chiller Pump Loop") 
     
 
 # Start Pump and Chiller if necessary TODO: Make it conditional if they are already on
@@ -367,9 +396,14 @@ class clsChillerRun :
       self.runChillerPumpOneLoop(self,queue, intStatusCode, name = strsectionname)
 
       # constantly check the status of the system 
-      if self._intSystemStatus > StatusCode.ERROR or intStatusCode.value > 2: return 
-    
-    self.shutdownChillerPump(self,queue,intStatusCode)
+      if intStatusCode.value > StatusCode.ERROR: 
+        logging.warning("----------     Shutdown has been Triggered, Beginning Shutdown") 
+        self.shutdownChillerPump(self,queue,intStatusCode)
+        break
+    if intStatusCode.value <= StatusCode.ERROR:
+      logging.info("----------     Chiller Loops Have Finished, Beginning Shutdown") 
+      self.shutdownChillerPump(self,queue,intStatusCode)
+
 # ------------------------------------------------------------------------------
 # Function: record temperature -------------------------------------------------
   def recordTemperature(self,queue,intStatusCode) :
@@ -422,7 +456,7 @@ class clsChillerRun :
     # keep reading data until the process is killed or 
     # kill the process if the global status is more serious than an ERROR
     #
-    while ( intStatusCode.value <= 2) : 
+    while ( intStatusCode.value <= StatusCode.PANIC) : 
       #
       # read thermocouple data, every read takes ~25 seconds for 29 data points
       # 
@@ -432,7 +466,7 @@ class clsChillerRun :
         if idata % intDataPerRead == 0 : 
           fltTempTup = list( istThermocouple.last( idata ) )
           #logging.data( 'Thermocouple T1: %5.2f, T2: %5.2f, T3: %5.2f, T4: %5.2f ' % \
-          logging.info( '<DATA> Thermocouple T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f} '.format( \
+          logging.debug( '<DATA> Thermocouple T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f} '.format( \
                         fltTempTup[0], fltTempTup[1], fltTempTup[2], fltTempTup[3]) )
 
           # keep on track the liquid temperature read out
@@ -483,7 +517,7 @@ class clsChillerRun :
       logging.error( self._strclassname + ' Humidity not found in device list! ')
       return
   
-    while(intStatusCode.value <= 2 ) :
+    while(intStatusCode.value <= StatusCode.PANIC ) :
       self.sendcommand(self, 'hRead',intStatusCode )
       fltHumidity = istHumidity.last() 
       #logger.log(logging.INFO, '<DATA> Humidity {:4.1f}'.format( fltHumidity ))
@@ -494,14 +528,12 @@ class clsChillerRun :
           logging.error( self._strclassname + ' at liquid temperature '+ str( self._fltTempLiquid ) +
                          ' box humidity ' + str( fltHumidity ) + '% > ' + str( fltStopUpperLimit ) + 
                          '% upper limit! Return! ')
-          self._intSystemStatus = StatusCode.PANIC
-          intStatusCode.value = 3
+          intStatusCode.value = StatusCode.PANIC 
           return
         elif fltHumidity > fltWarnUpperLimit : 
           logging.warning( self._strclassname + ' at liquid temperature '+ str( self._fltTempLiquid ) +
                            ' box humidity ' + str( fltHumidity ) + '% > ' + str( fltStopUpperLimit ) + '%')
-          self._intSystemStatus = StatusCode.ERROR
-          intStatusCode.value = 3
+          intStatusCode.value = StatusCode.ERROR 
 
       time.sleep( intFrequency - 1 )
     logging.info( self._strclassname + ' Humidity finished recording. ' )
@@ -512,8 +544,7 @@ def runRoutine( runPseudo = False ) :
     Run main routine
   """
   queue = mp.Queue(-1)
-  intStatusCode = Value('i',0)
-  print("**********     STATUS(globalcode): " +str(intStatusCode.value))
+  intStatusCode = Value('i',0) 
     
     #
     # run preset Chiller and Pump routine using two separated processing
@@ -521,37 +552,23 @@ def runRoutine( runPseudo = False ) :
     # the other for Temperature and Humidity recording
     # 
    
-    #self.recordTemperature(queue, intStatusCode)
-    #self.recordHumidity(queue, intStatusCode)
-
-  #istThermoRun = clsChillerRun(["Thermocouple"], runPseudo = runPseudo)
-  #istHumideRun = clsChillerRun(["Humidity"], runPseudo = runPseudo)
-
   mpList = []
   mpList.append( mp.Process(target = procListener,name = 'Listener', args =(queue,))) 
   mpList.append( mp.Process(target = clsChillerRun.recordTemperature,name = 'Temp Rec', args =(clsChillerRun,queue,intStatusCode,)) )
   mpList.append( mp.Process(target = clsChillerRun.recordHumidity,name = 'Humi Rec', args =(clsChillerRun,queue,intStatusCode,)) )
-  mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'run Chill', args =(clsChillerRun,queue,intStatusCode,)) )
+  mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'Run Chill', args =(clsChillerRun,queue,intStatusCode,)) )
     
   print("**********     BEGINNING PROCESSES")
   for p in mpList:
     p.start()
-    print("**********     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))
+    print("**********     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))    
     time.sleep(5)
-
-
-
-
-
-  print("**********     WAITING FOR SHUTDOWN TRIGGER")
-  mpList[3].join()
-
-
-    # shutdown Chiller and Pump
+    print("**********     ------------------------------------------------------------")
  
+  procUserCommands(queue,intStatusCode,mpList)
 
-  print("**********     CHILLER SHUTDOWN, TERMINATING REMAINING PROCESSES")
-  time.sleep(30) #Time for both of the logging devices to shut down
+  print("**********     CHILLER SHUTDOWN, Terminating ANY Remaining Processes")
+  #time.sleep(30) #Time for both of the logging devices to shut down
 
     # stops the Listener; Temperature and Humidity recorders are killed if they did not shut down properly
   mpList[1].terminate()
@@ -568,9 +585,9 @@ def main():
   intro()
 
 
-  logging.basicConfig(filename='test.log',
+  logging.basicConfig(filename=logName,
                       #stream=sys.stdout,  
-                      level=logging.DEBUG, \
+                      level=loggingLevel, \
                       format='%(asctime)s %(levelname)s: %(message)s', \
                       datefmt='%m/%d/%Y %I:%M:%S %p')
  
