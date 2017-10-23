@@ -27,7 +27,7 @@ from ChillerDevices import *       #real devices classes: Chiller Pump Humidity 
 from ChillerPseudoDevices import * #pseudo devices classes
 
 class clsDevicesHandler:
-  def __init__(self, istConfig, strdevnamelist, runPseudo = False):
+  def __init__(self, istConfig, strdevnamelist, runPseudo):
     """
       function initialization of devices handler
       read in configuration

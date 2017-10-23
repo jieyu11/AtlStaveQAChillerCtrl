@@ -60,7 +60,7 @@ class clsCommands:
     Class to convert human readable commands to machine readable commands
   """
 
-  def __init__(self, strcmdfilename):
+  def __init__(self, strcmdfilename,runPseudo):
     """
       function of initialization
       default: strcmdfilename = ChillerEquipmentCommands.txt
