@@ -34,9 +34,10 @@ class CycRedundCheck :
   
   def calcString(self, st, crc):
       # print "st = ", list( st)
+      print ("input: "+st)
       for ch in st:
           crc = (crc >> 8) ^ self.table[(crc ^ ord(ch)) & 0xFF]
-          # print " crc=%x" % crc
+          print (" crc=%x" % crc )
       return crc
   
   def testCRC(self ):
@@ -99,5 +100,9 @@ class CycRedundCheck :
 	 
 if __name__ == '__main__':
     istCRCtool = CycRedundCheck()
-    istCRCtool.testCRC()
+    #strinput = "0106002C00DC"
+    #strhexinput= str( bytes.fromhex(strinput) )
+    strhexinput = "\x01\x06\x00\x2C\x00\xdc"
+    istCRCtool.calcString(strhexinput, 0xFFFF)
+    #istCRCtool.testCRC()
 

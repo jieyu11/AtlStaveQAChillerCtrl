@@ -289,41 +289,82 @@ class clsPump ( clsDevice ):
     if strcmdpara == "" : 
       logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname )
       self._pdev.write( bytes.fromhex(strcmdname) )
+      logging.debug( ' READING: ' + strcmdname + ' COMMAND sent ' )
+
     else :
       if strcmdname[-1:] == "=" :
         strcmdname = strcmdname[0:-1]
 
       print ("pump parameter: " + strcmdpara)
-      intcmdpara = int(strcmdpara)
-      if intcmdpara < 5 or intcmdpara > 25 :
+      fltcmdpara = float(strcmdpara) # e.g. 22.5
+      if fltcmdpara < 5 or fltcmdpara > 25 :
         logging.warning( ' setting value ' + strcmdpara + ' is out of allowed range [5, 25] to device ' + self.strname )
         print( ' WARNING setting value ' + strcmdpara + ' is out of allowed range [5, 25] to device ' + self.strname )
-        intcmdpara = 10
-        strcmdpara = "10"
+        fltcmdpara = 10
 
+      intcmdpara = int( 10 * fltcmdpara )
       logging.info( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + ' at parameter ' + strcmdpara )
-      strcmdpara = '{:02x}'.format(intcmdpara) # should return a hex number with 015A...
-      #strhexcmdpara = '{:02x}'.format(intcmdpara) # should return a hex number with \x01\x5A...
-      strhexcmdpara = str( bytes.fromhex(strcmdpara) )
-      #strhexcmdpara = strcmdpara.decode("hex")
-      print ("looking good ? " + strhexcmdpara + " from " + strcmdpara )
+      ######strcmdpara = '{:02x}'.format(intcmdpara) # should return a hex number with 015A...
+      strcmdpara = '{:04x}'.format(intcmdpara) # should return a hex number with 015A...
+      strcmdpara = strcmdpara.upper()
 
+      ##! #strhexcmdpara = '{:02x}'.format(intcmdpara) # should return a hex number with \x01\x5A...
+      ##! strhexcmdpara = str( bytes.fromhex(strcmdpara) )
+      ##! #strhexcmdpara = strcmdpara.decode("hex")
+      ##! logging.debug (" READING " + self.strname + " converting to " + strhexcmdpara + " from " + strcmdpara )
+
+      print ('GOT command name ' + strcmdname)
+      strcmdname = "01060000"
+
+      """ 
+      print ('NOW change command name ' + strcmdname)
+      strcmdnamepara = strcmdname + strcmdpara
+      print ('NOW  command + parameter name ' + strcmdnamepara)
+      strhexcmdnamepara = str( bytes.fromhex(strcmdnamepara)) 
+      """
+
+      strcmdnamepara = strcmdname + strcmdpara
+
+      logging.debug (" READING " + self.strname + " converting from " + strcmdnamepara + " with length " + str(len(strcmdnamepara)) )
+      strhexcmdnamepara = str( bytes.fromhex( strcmdnamepara )) ###[1:]
+
+      """
+      for i in range(0, len(strcmdnamepara), 2) :
+        #strhexcmdnamepara += '\\x' + strcmdnamepara[ i : i+2]
+        #strhexcmdnamepara += str(bytes.fromhex( strcmdnamepara[ i : i+2] ))
+        #strhexcmdnamepara += (bytes.fromhex( strcmdnamepara[ i : i+2] )).hex()
+        #strhexcmdnamepara += str(bytes.fromhex( strcmdnamepara[ i : i+2] ))[1:]
+        strtmp = str(bytes.fromhex( strcmdnamepara[ i : i+2] ))[1:]
+        print ("LENGTH should be 2, is it ? " + str( len(strtmp) ) )
+        strhexcmdnamepara.append( str(bytes.fromhex( strcmdnamepara[ i : i+2] ))[1:] )
+      """
+
+      print ('SEND command parameters for conversion ' + strhexcmdnamepara )
       crc = 0xFFFF
-      hexcrc = self.istCRC.calcString(strhexcmdpara, crc)
-      print ('conver to string ' + str(hexcrc) )
-      strhexcrc = format(hexcrc, 'x')
-      print( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + ' at parameter in hex: ' + strcmdpara + " generated: " + strhexcrc )
-      print ('SENDING : ' + strcmdname+strcmdpara+strhexcrc)
+      #hexcrc = self.istCRC.calcString(strhexcmdnamepara, crc)
+      ##! hexcrc = self.istCRC.calcString( strcmdname + strcmdpara, crc)
+      ##! OK: strhexcmdnamepara = "\x01\x06\x00\x2C\x00\xdc"
+      hexcrc = self.istCRC.calcString( strhexcmdnamepara, crc)
+      logging.debug ('conver to string ' + str(hexcrc) )
+      #strhexcrc = format(hexcrc, 'x')
+      strhexcrc = format(hexcrc, '04x')
+      strhexcrc = strhexcrc[2:] + strhexcrc[0:2]
+      logging.debug( ' READING: Sending command ' + strcmdname + ' to device ' + self.strname + ' at parameter in hex: ' + strcmdpara + " generated: " + strhexcrc )
+      logging.debug ('SENDING : ' + strcmdname +strcmdpara.upper() +strhexcrc.upper() )
 
-      self._pdev.write( bytes.fromhex(strcmdname+strcmdpara+strhexcrc) )
+      self._pdev.write( bytes.fromhex(strcmdname +strcmdpara.upper() +strhexcrc.upper() ) )
 
+
+    logging.debug( ' READING ' + self.strname + ' commend sent ' )
     byteline = self._pdev.readline()
+    logging.debug( ' READING ' + self.strname + ' line obtained with bytes ' )
     strline = byteline.hex()
+    logging.debug( ' READING ' + self.strname + ' line obtained ' + strline )
     print( ' READING current ' + self.strname + ' value: ' + strline )
     logging.info( ' READING current ' + self.strname + ' value: ' + strline )
 
     # TODO: setting pump values OK???
-    self._value = float( strline )
+    self._value =  strline
 
   def last(self) : 
     return self._value

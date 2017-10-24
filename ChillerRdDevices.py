@@ -61,8 +61,7 @@ class clsDevicesHandler:
         if runPseudo: 
           self.__dictDevices[ strdevname ] = clsPseudoPump(strdevname)
         else:
-          #!! self.__dictDevices[ strdevname ] = clsPump(strdevname, strPort, intBaud)
-          self.__dictDevices[ strdevname ] = clsPseudoPump(strdevname)
+          self.__dictDevices[ strdevname ] = clsPump(strdevname, strPort, intBaud)
       elif strdevname == 'Humidity':
         if runPseudo: 
           self.__dictDevices[ strdevname ] = clsPseudoHumidity(strdevname)

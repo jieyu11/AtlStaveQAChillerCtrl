@@ -16,7 +16,7 @@ Class clsChillerRun
 """
 Version = 'B.0.1'
 pyVersion = '3.6'
-runPseudo = True
+runPseudo = False
 
 
 
@@ -76,7 +76,7 @@ def intro():
 logName = str(time.strftime( '%Y-%m-%d_%I-%M%p_',time.localtime()))+'ChillerRun.log'
 
 #print("**********     Creating Log " + logName)
-loggingLevel = logging.INFO
+loggingLevel = logging.DEBUG
 
 
 # -----------------------------------------------------------------------------
@@ -221,12 +221,13 @@ class clsChillerRun :
       function to send command to any of the devices
     """
     try:
+      logging.debug(' Start to send user command ' + strusercommand )
       strdevname, strcmdname, strcmdpara = self._istCommand.getdevicecommand( strusercommand )
       logging.debug('sending command %s %s %s' % (strdevname, strcmdname, strcmdpara) )
       self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara)
     except:
-      if intStatusCode.value < StatusCode.Error:  
-        intStatusCode.value = 2
+      if intStatusCode.value < StatusCode.ERROR:  
+        intStatusCode.value = StatusCode.ERROR
       raise ValueError('Could not find user command: %s in %s' % (strusercommand, self._istCommand.cfgname() ))
 
 # ------------------------------------------------------------------------------
@@ -325,8 +326,8 @@ class clsChillerRun :
     # don't run any loop if it is set to 0 or negative
     if intChiNLoops <= 0: return
 
-    strTemperatureList = [ ]
-    strTimePeriodList  = [ ]
+    #strTemperatureList = [ ]
+    #strTimePeriodList  = [ ]
     try:
       # split values by ',' and then remove the white spaces.
       strTemperatureList = [ x.strip(' ') for x in self._istRunCfg.get( name, 'Temperagures' ).split(',') ]
@@ -377,10 +378,18 @@ class clsChillerRun :
     
 
 # Start Pump and Chiller if necessary TODO: Make it conditional if they are already on
-    self.sendcommand(self, 'cStart' ,intStatusCode)
+    ###!!!! self.sendcommand(self, 'cStart' ,intStatusCode)
     time.sleep(1)
+    print ('XXXXXX send unlock drive ')
+    self.sendcommand(self, 'iUnlockDrive',intStatusCode )
+    time.sleep(10)
+    print ('XXXXXX send unlock parameters ')
+    self.sendcommand(self, 'iUnlockParameter' ,intStatusCode)
+    time.sleep(10)
+    print ('XXXXXX send PUMP start ')
     self.sendcommand(self, 'iStart',intStatusCode )
-    time.sleep(1)
+    print ('XXXXXX waiting for 10 seconds ')
+    time.sleep(10)
 
 
 
@@ -395,10 +404,15 @@ class clsChillerRun :
     # Unlock before sending commands to inverter (Pump)
     # do it once at a beginning of a run
     #
-    self.sendcommand(self, 'iUnlockDrive',intStatusCode )
-    self.sendcommand(self, 'iUnlockParameter' ,intStatusCode)
+
+    print ('XXXXXX send change RPM ')
     self.sendcommand(self, 'iRPM=' + strPumpRunRPM ,intStatusCode)
  
+    return None
+
+
+
+
     for strsectionname in [ name for name in self._istRunCfg.sections() if "Chiller" in name ]:
       self.runChillerPumpOneLoop(self,queue, intStatusCode, name = strsectionname)
 
@@ -561,8 +575,8 @@ def runRoutine( ) :
    
   mpList = []
   mpList.append( mp.Process(target = procListener,name = 'Listener', args =(queue,))) 
-  mpList.append( mp.Process(target = clsChillerRun.recordTemperature,name = 'Temp Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo,)) )
-  mpList.append( mp.Process(target = clsChillerRun.recordHumidity,name = 'Humi Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo)) )
+  #!!mpList.append( mp.Process(target = clsChillerRun.recordTemperature,name = 'Temp Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo,)) )
+  #!!mpList.append( mp.Process(target = clsChillerRun.recordHumidity,name = 'Humi Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo)) )
   mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'RunChill', args =(clsChillerRun,queue,intStatusCode,runPseudo,)) )
     
   print("**********     BEGINNING PROCESSES")
@@ -579,7 +593,7 @@ def runRoutine( ) :
 
     # stops the Listener; Temperature and Humidity recorders are killed if they did not shut down properly
   mpList[1].terminate()
-  mpList[2].terminate()
+  #!!mpList[2].terminate()
   mpList[0].terminate()
 
   print("**********     ALL PROCESSES ARE SHUTDOWN! HAVE A NICE DAY!")

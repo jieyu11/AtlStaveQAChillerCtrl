@@ -101,7 +101,8 @@ method to unlock the drive control and parameter controls is to write specific
 values to registers #48 (0x30) & #49 (0x31).  After the locks are clear one can 
 start, stop, set RPM values.  One can read registers without clearing the locks.
 
-(Note: x = hex digit, rrrr = RPM value*10 (max = 0x445C), yyyy = CRC value)
+(Note: x = hex digit, rrrr = RPM value*10 (max = 0x445C), zzyy = CRC value,
+then convert it to yyzz)
 
   Command             Response
 01060030000089C5   01060030000089C5  (Unlock the drive control)
@@ -111,7 +112,7 @@ start, stop, set RPM values.  One can read registers without clearing the locks.
 0106002Crrrryyyy   0106002Crrrryyyy  (Set the RPM of the booster pump)
 01060001000259CB   01060001000259CB  (lock drive control)
 010300170001340E   010302xxxxyyyy    (Drive status)
-010300190001EE58   010302xxxxyyyy    (Actual RPM)
+010300190001EE58   010302xxxxyyzz    (Actual RPM)
 
    If the inverter receives a invalid command that it is able to decipher, it 
 will return an error code.  
