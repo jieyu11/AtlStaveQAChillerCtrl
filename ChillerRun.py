@@ -16,13 +16,6 @@ Class clsChillerRun
 """
 Version = 'B.0.1'
 pyVersion = '3.6'
-runPseudo = False
-
-
-
-
-
-
 
 # ------------------------------------------------------------------------------
 # Import section ---------------------------------------------------------------
@@ -68,15 +61,13 @@ def intro():
   print("------------------------- CHILLER CONTROL -------------------------")
   print("Python Version: %s, Program Version: %s" % (pyVersion,Version))
 
-
-
 # -----------------------------------------------------------------------------
 # Log File --------------------------------------------------------------------
 
 logName = str(time.strftime( '%Y-%m-%d_%I-%M%p_',time.localtime()))+'ChillerRun.log'
 
 #print("**********     Creating Log " + logName)
-loggingLevel = logging.DEBUG
+loggingLevel = logging.INFO
 
 
 # -----------------------------------------------------------------------------
@@ -85,10 +76,6 @@ def procListener (queue) :
   """
     Process that reads the queue and then puts thing to a file
   """
-
-  #logging.addLevelName( 21, "DATA")
-  #logging.Logger.data = data 
-
   root = logging.getLogger()# Defines the logger
   h = logging.handlers.RotatingFileHandler(logName,'a',1000000,10) # Creates a rotating file handler to control how the queue works
   f = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')# Creates format of all logged material
@@ -142,9 +129,9 @@ def procUserCommands(queue,intStatusCode,procList,runPseudo):
     
 
     if val == 'status':
-      print("**********     Global Status: "+str(intStatusCode.value)+"  Using PseudoData?: "+ str(runPseudo))
+      print("     Global Status: "+str(intStatusCode.value)+"  Using PseudoData?: "+ str(runPseudo))
       for p in procList:
-        print("**********     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))          
+        print("     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))          
       
 
 # ------------------------------------------------------------------------------
@@ -174,7 +161,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: Initialization -----------------------------------------------------
-  def init(self, strdevnamelist, runPseudo=False) :
+  def init(self, strdevnamelist, runPseudo) :
     '''
     This is initialized at the start of each running process. In each process the
     devices are stated in the initialization and their configuration occurs. If 
@@ -241,7 +228,6 @@ class clsChillerRun :
     intStatusCode.value = StatusCode.FATAL
     self.shutdownChillerPump(intStatusCode)
 
-
 # ------------------------------------------------------------------------------
 # Function: Shut down Chiller Pump ---------------------------------------------
   def shutdownChillerPump (self,queue,intStatusCode) :
@@ -261,7 +247,6 @@ class clsChillerRun :
       2) Runtime error (status = ERROR or PANIC)
       3) End of run (status = OK or WARNING)
     """
-    #print("**********     BEGINNING SHUTDOWN     **********")
     strPumpStopRPM = '10'
     strChiStopTemp = '20'
     try:
@@ -278,10 +263,10 @@ class clsChillerRun :
     # Key: Chiller and Pump commands 
     # Value: information for logging
     #
-    strCommandDict = { 'cChangeSetpoint=' + strChiStopTemp : 'Chiller change set point to ' + strChiStopTemp,
-                       'iRPM=' + strPumpStopRPM :            'Pump change RPM to '+strPumpStopRPM,
-                       'iStop' :                             'Pump shutting down', 
-                       'cStop' :                             'Chiller shutting down'}
+    strCommandDict = { 'cChangeSetpoint=' + strChiStopTemp : self._strclassname + ' Chiller change set point to ' + strChiStopTemp,
+                       'iRPM=' + strPumpStopRPM :            self._strclassname + ' Pump change RPM to '+strPumpStopRPM,
+                       'iStop' :                             self._strclassname + ' Pump shutting down', 
+                       'cStop' :                             self._strclassname + ' Chiller shutting down'}
 
     for strcommand, strlog in strCommandDict.items() :
       # send the command to the corresponding device
@@ -291,7 +276,7 @@ class clsChillerRun :
       logging.info( strlog );
 
       # wait for 1 seconds after each command
-      time.sleep(1) 
+      time.sleep(5) 
 
       # for non emergency shutdown, first cool down the chiller before shutting down the whole system 
       if intStatusCode.value < StatusCode.FATAL and 'cChangeSetpoint' in strcommand :
@@ -300,7 +285,7 @@ class clsChillerRun :
           intTimeCool = 60 * int( self._istRunCfg.get( 'Chiller', 'StopCoolTime' ) ) # parameter in minutes
         except :
           pass
-        logging.info( 'Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' ) 
+        logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' ) 
         time.sleep( intTimeCool )
  
         intStatusCode.value = StatusCode.DONE
@@ -319,15 +304,13 @@ class clsChillerRun :
     except:
       raise KeyError("Sections: "+ name + ", Key: NLoops not present in configure: %s" % \
                      self._istRunCfg.name() )
-    logging.info("Section: "+ name + ", number of loops " + str(intChiNLoops) )
+    logging.info("---------- Section: "+ name + ", number of loops " + str(intChiNLoops) )
 
 
 
     # don't run any loop if it is set to 0 or negative
     if intChiNLoops <= 0: return
 
-    #strTemperatureList = [ ]
-    #strTimePeriodList  = [ ]
     try:
       # split values by ',' and then remove the white spaces.
       strTemperatureList = [ x.strip(' ') for x in self._istRunCfg.get( name, 'Temperagures' ).split(',') ]
@@ -344,13 +327,13 @@ class clsChillerRun :
         intNTemperature = len( strTimePeriodList )
     
     for iloop in range(intChiNLoops) :
-      logging.info( ' Chiller, Pump running at loop no. ' + str(iloop) )
+      logging.info(self._strclassname + ' Chiller, Pump running at loop no. ' + str(iloop) )
       for itemp in range(intNTemperature) :
         # changing the Chiller Temperature to a corresponding value 
         self.sendcommand(self, 'cChangeSetpoint=' + strTemperatureList[itemp],intStatusCode )
-        logging.info( ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
+        logging.info(self._strclassname +  ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
         for itime in range( int(strTimePeriodList[itemp]) ):
-          logging.info( ' Chiller waiting at ' + str(itime) + 'th minute.' )
+          logging.info(self._strclassname +  ' Chiller waiting at ' + str(itime) + 'th minute.' )
 
           #
           # sleep for one minute, check system status every second
@@ -367,29 +350,25 @@ class clsChillerRun :
     """
       main routine to run Chiller Pump with user set loops
     """
-    print(runPseudo)
+   
     # Configures the processes handler so that it will log
     p_config(queue)
-
     # Configures the connected devices and their corresponding ports
     self.init(self,["Chiller","Pump"], runPseudo)
 
-    logging.info("----------     Beginning Chiller Pump Loop") 
+    logging.info(self._strclassname + " Beginning Chiller Pump Loop, Starting Chiller") 
     
+# Start Pump and Chiller if necessary TODO Make it conditional if they are already on
+    self.sendcommand(self, 'cStart' ,intStatusCode)
+    time.sleep(1)  
 
-# Start Pump and Chiller if necessary TODO: Make it conditional if they are already on
-    ###!!!! self.sendcommand(self, 'cStart' ,intStatusCode)
-    time.sleep(1)
-    print ('XXXXXX send unlock drive ')
+    logging.info(self._strclassname + " Unlocking BoosterPump Drive, Starting Booster Pump")
     self.sendcommand(self, 'iUnlockDrive',intStatusCode )
-    time.sleep(10)
-    print ('XXXXXX send unlock parameters ')
+    time.sleep(5)
     self.sendcommand(self, 'iUnlockParameter' ,intStatusCode)
-    time.sleep(10)
-    print ('XXXXXX send PUMP start ')
+    time.sleep(5)
     self.sendcommand(self, 'iStart',intStatusCode )
-    print ('XXXXXX waiting for 10 seconds ')
-    time.sleep(10)
+    time.sleep(5)
 
 
 
@@ -404,14 +383,10 @@ class clsChillerRun :
     # Unlock before sending commands to inverter (Pump)
     # do it once at a beginning of a run
     #
-
-    print ('XXXXXX send change RPM ')
-    self.sendcommand(self, 'iRPM=' + strPumpRunRPM ,intStatusCode)
  
-    return None
+    self.sendcommand(self, 'iRPM=' + strPumpRunRPM ,intStatusCode)
 
-
-
+    logging.info(self._strclassname + " Pump change RPM to "+strPumpRunRPM)
 
     for strsectionname in [ name for name in self._istRunCfg.sections() if "Chiller" in name ]:
       self.runChillerPumpOneLoop(self,queue, intStatusCode, name = strsectionname)
@@ -422,7 +397,7 @@ class clsChillerRun :
         self.shutdownChillerPump(self,queue,intStatusCode)
         break
     if intStatusCode.value <= StatusCode.ERROR:
-      logging.info("----------     Chiller Loops Have Finished, Beginning Shutdown") 
+      logging.info(self._strclassname + " Chiller Loops Have Finished, Beginning Shutdown") 
       self.shutdownChillerPump(self,queue,intStatusCode)
 
 # ------------------------------------------------------------------------------
@@ -433,7 +408,6 @@ class clsChillerRun :
     """
 
     p_config(queue)
-    print("**********     STARTING TEMP RECORDER")
 
     self.init(self,["Thermocouple"], runPseudo)
 
@@ -540,10 +514,8 @@ class clsChillerRun :
     while(intStatusCode.value <= StatusCode.PANIC ) :
       self.sendcommand(self, 'hRead',intStatusCode )
       fltHumidity = istHumidity.last() 
-      #logger.log(logging.INFO, '<DATA> Humidity {:4.1f}'.format( fltHumidity ))
       logging.info( '<DATA> Humidity {:4.1f}'.format( fltHumidity ) )
       if self._fltTempLiquid < 0.:
-        #logging.info( '<DATA> Humidity {:4.1f}'.format( fltHumidity ) )
         if fltHumidity > fltStopUpperLimit : 
           logging.error( self._strclassname + ' at liquid temperature '+ str( self._fltTempLiquid ) +
                          ' box humidity ' + str( fltHumidity ) + '% > ' + str( fltStopUpperLimit ) + 
@@ -564,6 +536,15 @@ def runRoutine( ) :
     Run main routine
   """
 
+  #First must run a short routine that allows the user to determine if it will run with PseudoData
+
+  val = input("**********     USER:Do you wish to run with pseudo data? (y/n)\n")
+  runPseudo = False
+  if val == 'y':
+    runPseudo = True
+  if runPseudo == False:
+    input("**********     USER: Check the status of the pump, chiller and pipes. If all are set press enter")
+          
   queue = mp.Queue(-1)
   intStatusCode = Value('i',0)   
  
@@ -575,25 +556,24 @@ def runRoutine( ) :
    
   mpList = []
   mpList.append( mp.Process(target = procListener,name = 'Listener', args =(queue,))) 
-  #!!mpList.append( mp.Process(target = clsChillerRun.recordTemperature,name = 'Temp Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo,)) )
-  #!!mpList.append( mp.Process(target = clsChillerRun.recordHumidity,name = 'Humi Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo)) )
+  mpList.append( mp.Process(target = clsChillerRun.recordTemperature,name = 'Temp Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo,)) )
+  mpList.append( mp.Process(target = clsChillerRun.recordHumidity,name = 'Humi Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo)) )
   mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'RunChill', args =(clsChillerRun,queue,intStatusCode,runPseudo,)) )
     
   print("**********     BEGINNING PROCESSES")
   for p in mpList:
     p.start()
-    print("**********     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))    
+    print("**********     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive())+" PseudoData?: "+str(runPseudo))    
     time.sleep(5)
     print("**********     ------------------------------------------------------------")
  
   procUserCommands(queue,intStatusCode,mpList,runPseudo)
 
   print("**********     CHILLER SHUTDOWN, Terminating ANY Remaining Processes")
-  #time.sleep(30) #Time for both of the logging devices to shut down
 
     # stops the Listener; Temperature and Humidity recorders are killed if they did not shut down properly
   mpList[1].terminate()
-  #!!mpList[2].terminate()
+  mpList[2].terminate()
   mpList[0].terminate()
 
   print("**********     ALL PROCESSES ARE SHUTDOWN! HAVE A NICE DAY!")
@@ -604,7 +584,6 @@ def main():
     test running the whole routine
   """
   intro()
-
   print("**********     Creating Log " + logName)
 
   logging.basicConfig(filename=logName,
@@ -614,7 +593,6 @@ def main():
                       datefmt='%m/%d/%Y %I:%M:%S %p')
  
   runRoutine()
-
 
 if __name__ == '__main__' : 
   mp.set_start_method('spawn')

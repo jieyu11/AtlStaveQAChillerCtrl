@@ -34,10 +34,10 @@ class CycRedundCheck :
   
   def calcString(self, st, crc):
       # print "st = ", list( st)
-      print ("input: "+st)
+      #print ("input: "+ str( st) )
       for ch in st:
           crc = (crc >> 8) ^ self.table[(crc ^ ord(ch)) & 0xFF]
-          print (" crc=%x" % crc )
+          #print (" crc=%x" % crc )
       return crc
   
   def testCRC(self ):

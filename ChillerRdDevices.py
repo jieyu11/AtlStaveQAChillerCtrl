@@ -49,7 +49,7 @@ class clsDevicesHandler:
       if 'port' not in istConfig.keys( strdevname ) :
         continue
 
-      print ('Device name: ' + strdevname )
+      #print ('Device name: ' + strdevname )
       strPort = istConfig.get(strdevname, 'Port')
       intBaud = int( istConfig.get(strdevname, 'Baud'))
       if strdevname == 'Chiller':
