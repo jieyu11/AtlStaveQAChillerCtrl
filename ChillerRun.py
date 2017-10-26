@@ -550,7 +550,7 @@ class clsChillerRun :
         time.sleep(1)
         if intStatusCode.value >= StatusCode.PANIC:
           for p in mailList: 
-            SE.funcSendMail(i,"Shutting Down Chiller","The chiller has been triggered to shutdown")
+            SE.funcSendMail(p,"Shutting Down Chiller","The chiller has been triggered to shutdown")
             logging.info('< RUNNING > Messenger has sent email to '+ p) 
           break
  
