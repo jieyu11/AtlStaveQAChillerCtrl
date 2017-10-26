@@ -28,6 +28,8 @@ import sys
 from ChillerRdDevices import *
 from ChillerRdConfig  import *
 from ChillerRdCmd     import *
+from SendEmails       import *
+
 
 # https://docs.python.org/3.6/library/multiprocessing.html
 from multiprocessing import Process, Value
@@ -531,6 +533,35 @@ class clsChillerRun :
     logging.info( self._strclassname + ' Humidity finished recording. ' )
 
 # -----------------------------------------------------------------------------
+  def funcMessenger(self,queue,intStatusCode,verbose):
+    """
+      This process watches the status code. If an error occurs, then if verbose
+      is set to true it will send emails to the email list.
+    """
+    p_config(queue)
+
+    mailList = ['wheidorn@iastate.edu','wheidorn@gmail.com']
+    SE = clsSendEmails()
+    
+
+
+    if verbose == True:
+      while intStatusCode.value < StatusCode.DONE:
+        time.sleep(1)
+        if intStatusCode.value >= StatusCode.PANIC:
+          for p in mailList: 
+            SE.funcSendMail(i,"Shutting Down Chiller","The chiller has been triggered to shutdown")
+            logging.info('< RUNNING > Messenger has sent email to '+ p) 
+          break
+ 
+    logging.info('< RUNNING > Messenger has finished')
+
+
+
+
+
+
+# -----------------------------------------------------------------------------
 def runRoutine( ) :
   """
     Run main routine
@@ -544,7 +575,12 @@ def runRoutine( ) :
     runPseudo = True
   if runPseudo == False:
     input("**********     USER: Check the status of the pump, chiller and pipes. If all are set press enter")
-          
+  
+  val = input("**********     USER:Do you wish to send emails to notify when shutdown occurs? (y/n)\n")
+  verbose = False
+  if val == 'y':
+    verbose = True
+  
   queue = mp.Queue(-1)
   intStatusCode = Value('i',0)   
  
@@ -556,16 +592,18 @@ def runRoutine( ) :
    
   mpList = []
   mpList.append( mp.Process(target = procListener,name = 'Listener', args =(queue,))) 
+  mpList.append( mp.Process(target = clsChillerRun.funcMessenger, name = 'Messengr', args =(clsChillerRun,queue,intStatusCode,verbose)) )
   mpList.append( mp.Process(target = clsChillerRun.recordTemperature,name = 'Temp Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo,)) )
   mpList.append( mp.Process(target = clsChillerRun.recordHumidity,name = 'Humi Rec', args =(clsChillerRun,queue,intStatusCode,runPseudo)) )
-  mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'RunChill', args =(clsChillerRun,queue,intStatusCode,runPseudo,)) )
-    
+  mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'RunChill', args =(clsChillerRun,queue,intStatusCode,runPseudo,)) ) 
+      
   print("**********     BEGINNING PROCESSES")
+  print("---------------------------------------------------------------------------")
   for p in mpList:
     p.start()
     print("**********     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive())+" PseudoData?: "+str(runPseudo))    
     time.sleep(5)
-    print("**********     ------------------------------------------------------------")
+    print("---------------------------------------------------------------------------")
  
   procUserCommands(queue,intStatusCode,mpList,runPseudo)
 
@@ -575,6 +613,7 @@ def runRoutine( ) :
   mpList[1].terminate()
   mpList[2].terminate()
   mpList[0].terminate()
+  mpList[4].terminate()
 
   print("**********     ALL PROCESSES ARE SHUTDOWN! HAVE A NICE DAY!")
 
@@ -586,8 +625,7 @@ def main():
   intro()
   print("**********     Creating Log " + logName)
 
-  logging.basicConfig(filename=logName,
-                      #stream=sys.stdout,  
+  logging.basicConfig(filename=logName, 
                       level=loggingLevel, \
                       format='%(asctime)s %(levelname)s: %(message)s', \
                       datefmt='%m/%d/%Y %I:%M:%S %p')
