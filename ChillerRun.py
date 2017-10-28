@@ -14,9 +14,6 @@ Class clsChillerRun
   
   Dictionary of abbreviations: 
 """
-Version = 'B.0.1'
-pyVersion = '3.6'
-
 # ------------------------------------------------------------------------------
 # Import section ---------------------------------------------------------------
 
@@ -39,8 +36,14 @@ from enum import IntEnum
 from functools import total_ordering
 @total_ordering
 
+# ------------------------------------------------------------------------------
+# Class StatusCode -------------------------------------------------------------
 
 class StatusCode (IntEnum) :
+  """
+    This defines is the value that is used for the global intStatusCode
+    which will signals shutdown and type of shutdown
+  """
   OK      = 0  # -> all devices are fine
   PANIC   = 1  # -> Puts the system into a normal shutdown
   FATAL   = 2  # -> Turns off the Chiller and Pump right away
@@ -49,73 +52,17 @@ class StatusCode (IntEnum) :
     if self.__class__ is other.__class__:
       return self.value < other.value
     return NotImplemented
-'''
-Also I am adding in a global called intStatusCode, it will do the same thing as the StatusCode Class
-'''
-# -----------------------------------------------------------------------------
-# Intro -----------------------------------------------------------------------
-def intro():
-  """
-    A List of things printed when the program runs
-  """
-  print("------------------------- CHILLER CONTROL -------------------------")
-  print("Python Version: %s, Program Version: %s" % (pyVersion,Version))
-
-# -----------------------------------------------------------------------------
-# Log File --------------------------------------------------------------------
-
-logName = str(time.strftime( '%Y-%m-%d_%I-%M%p_',time.localtime()))+'ChillerRun.log'
-
-#print("**********     Creating Log " + logName)
-loggingLevel = logging.INFO
-
-# -----------------------------------------------------------------------------
-# Function User Commands -------------------------------------------------
-
-def procUserCommands(queue,intStatusCode,fltProgress,procList,runPseudo):
-  while intStatusCode.value < StatusCode.DONE:
-    print(" ")
-    print("__Commands_During_Operation__")
-    print("kill = stops all processes, does not shutdown pump or chiller")
-    print("eshutdown = stops the chiller and then pump without full cooldown")
-    print("shutdown = sets the system into a shutdown mode")
-    print("status = shows current status of all running processes")
-    print("progress = shows how far into the loop the system is")
-    print(" ")
-
-    val = input("Input::: \n")
-    if val == 'kill':
-      processVal = input("WARNING! This just kills the program!It will leave the Chiller/Pump in their current state! Proceed? (y/n) \n")
-      if processVal == 'y':
-        intStatusCode.value = StatusCode.DONE
-
-    if val == 'eshutdown':
-      intStatusCode.value = StatusCode.FATAL
-
-    if val == 'shutdown':
-      intStatusCode.value = StatusCode.PANIC
-    
-    if val == 'status':
-      print("     Global Status: "+str(intStatusCode.value)+"  Using PseudoData?: "+ str(runPseudo))
-      for p in procList:
-        print("     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))          
-      
-    if val == 'progress':
-      if intStatusCode.value == StatusCode.OK:
-        print("     Loop Progress: "+str(fltProgress.value)+'%')
-      if intStatusCode.value > StatusCode.OK:
-        print("     Loop Progress: Finished")
 
 # ------------------------------------------------------------------------------
 # Class ChillerRun -------------------------------------------------------------
-class clsChillerRun :
+class clsChillerRun : 
   """
     Class to provide user interfaces for:
     * Running the Chiller Pump system routine
     * Recording temperature and humidity values
     * Shutdown Chiller Pump system
     * Close Thermocouple and Humidity readout 
-
+    * Communication between processes
     Code Structure:
            | <---- Devices Commands 
            |           | <-- Command communications           
@@ -129,7 +76,6 @@ class clsChillerRun :
       |
       Main
   """
-
 # ------------------------------------------------------------------------------
 # Function: Initialization -----------------------------------------------------
   def init(self, strdevnamelist, runPseudo) :
@@ -159,7 +105,6 @@ class clsChillerRun :
     # last temperature value for liquid from thermocouple, needed for humidity sensor 
     # if liquid temperature is lower than 0., humidity cannot be too high.
     self._fltTempLiquid = 0.
-    #time.sleep(2)
 
 # ------------------------------------------------------------------------------
 # Function: sendcommand --------------------------------------------------------
@@ -185,13 +130,13 @@ class clsChillerRun :
     funcPetDog that sets the spot to 1 which is the OK sign. There is also WackDog
     this will put the spot into a number that can be a given error.
     '''
-  def funcPetDog (intProcess,intStatusArray):
+  def funcPetDog (intProcess,intStatusArray): #Puts the WatchDog into OK, which stops an error
     intStatusArray[intProcess] = 1
-  def funcWackDog (intProcess,intStatusArray,intStatus):
+  def funcWackDog (intProcess,intStatusArray,intStatus): # Gives the Watchdog an error sign
     intStatusArray[intProcess] = intStatus
 # -----------------------------------------------------------------------------
 # Listener Process ------------------------------------------------------------
-  def procListener (self, queue, intStatusArray) :
+  def procListener (self, queue, intStatusArray,logName) :
     """
       Process that reads the queue and then puts thing to a file
     """
@@ -217,7 +162,7 @@ class clsChillerRun :
 
 # -----------------------------------------------------------------------------
 # Function: process_configure -------------------------------------------------
-  def p_config(queue) :
+  def p_config(queue,loggingLevel) :
     """
        function that must be present in any process that uses the logger
     """
@@ -227,13 +172,13 @@ class clsChillerRun :
     root.setLevel(loggingLevel) # This sets what level is logged in each process
 
 # -----------------------------------------------------------------------------
-  def funcMessenger(self,queue,intStatusCode,verbose):
+  def funcMessenger(self,queue,intStatusCode,verbose,loggingLevel):
     """
       This process watches the status code. If an error occurs, then if verbose
       is set to true it will send emails to the email list.
     """
     
-    self.p_config(queue)
+    self.p_config(queue,loggingLevel)
 
     mailList = ['wheidorn@iastate.edu','wheidorn@gmail.com']
     SE = clsSendEmails()
@@ -259,20 +204,14 @@ class clsChillerRun :
       * Start Pump
       * Set Pump RPM to 22
     """
-    logging.info(self._strclassname + " Starting Chiller") 
+    logging.info(self._strclassname + " Starting Chiller and Pump") 
     
 # Start Pump and Chiller if necessary TODO Make it conditional if they are already on
-    self.sendcommand(self, 'cStart' ,intStatusCode)
-    time.sleep(1)  
-
-    logging.info(self._strclassname + " Unlocking BoosterPump Drive, Starting Booster Pump")
-    self.sendcommand(self, 'iUnlockDrive',intStatusCode )
-    time.sleep(5)
-    self.sendcommand(self, 'iUnlockParameter' ,intStatusCode)
-    time.sleep(5)
-    self.sendcommand(self, 'iStart',intStatusCode )
-    time.sleep(5)
-
+    cmdList = ['cStart','iUnlockDrive','iUnlockParameter','iStart']
+    for cmd in cmdList:
+      self.sendcommand(self, cmd, intStatusCode)
+      time.sleep(5)
+   
     strPumpRunRPM = '22'
     try:
       strPumpRunRPM = self._istRunCfg.get( 'Pump', 'RunRPM' )
@@ -307,6 +246,7 @@ class clsChillerRun :
       2) Major Emergency (status = FATAL) does not allow for cooldown
       3) End of run (status = DONE) signals to all processes that the program is done
     """
+     
     strPumpStopRPM = '10'
     strChiStopTemp = '20'
     try:
@@ -350,9 +290,7 @@ class clsChillerRun :
           if intStatusCode.value > StatusCode.PANIC: break 
           time.sleep( 1 ) # in seconds
           self.funcPetDog(3,intStatusArray)
-         
-    intStatusCode.value = StatusCode.DONE
-      
+    intStatusCode.value = StatusCode.DONE  
         
 # ------------------------------------------------------------------------------
 # Function: run one loop of Chiller Pump ---------------------------------------
@@ -397,29 +335,24 @@ class clsChillerRun :
         # changing the Chiller Temperature to a corresponding value 
         self.sendcommand(self, 'cChangeSetpoint=' + strTemperatureList[itemp],intStatusCode )
         logging.info(self._strclassname +  ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
-        for itime in range( int(strTimePeriodList[itemp]) ):
-          logging.info(self._strclassname +  ' Chiller waiting at ' + str(itime) + 'th minute.' )
+        logging.info(self._strclassname + ' Chiller waiting ' + strTimePeriodList[itemp] + ' minutes.')
+        for i in range( 60 * int(strTimePeriodList[itemp])):
+          if intStatusCode.value > StatusCode.OK: return
+          time.sleep(1)
+          self.funcPetDog(3,intStatusArray)
 
-          #
-          # sleep for one minute, check system status every second
-          #
-          for i in range( 60 ):
-             # check second by second the status of the system
-             if intStatusCode.value > StatusCode.OK: return 
-             time.sleep( 1 ) # in seconds
-             self.funcPetDog(3,intStatusArray)
         fltProgress.value += fltProgressStep
     logging.info('----------     Chiller, Pump looping finished!' )
  
 # ------------------------------------------------------------------------------
 # Function: run Chiller Pump ---------------------------------------------------
-  def runChillerPump(self,queue,intStatusCode,intStatusArray,fltProgress,runPseudo) :
+  def runChillerPump(self,queue,intStatusCode,intStatusArray,fltProgress,loggingLevel,runPseudo) :
     """
       main routine to run Chiller Pump with user set loops
      """
    
     # Configures the processes handler so that it will log
-    self.p_config(queue)
+    self.p_config(queue,loggingLevel)
     # Configures the connected devices and their corresponding ports
     self.init(self,["Chiller","Pump"], runPseudo)
 
@@ -433,19 +366,19 @@ class clsChillerRun :
       if intStatusCode.value > StatusCode.OK: 
         logging.warning("----------     Shutdown has been Triggered, Beginning Shutdown") 
         self.shutdownChillerPump(self,queue,intStatusCode,intStatusArray)
-        break
+        return
 
     logging.info(self._strclassname + " Chiller Loops Have Finished, Beginning Shutdown") 
     self.shutdownChillerPump(self,queue,intStatusCode,intStatusArray)
-
+    
 # ------------------------------------------------------------------------------
 # Function: record temperature -------------------------------------------------
-  def recordTemperature(self,queue,intStatusCode,intStatusArray,runPseudo) :
+  def recordTemperature(self,queue,intStatusCode,intStatusArray,loggingLevel,runPseudo) :
     """
       recording temperatures of ambient, box, inlet, outlet from the thermocouples
     """
 
-    self.p_config(queue)
+    self.p_config(queue,loggingLevel)
 
     self.init(self,["Thermocouple"], runPseudo)
 
@@ -514,11 +447,11 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: record humidity ----------------------------------------------------
-  def recordHumidity(self,queue,intStatusCode,intStatusArray,runPseudo) :
+  def recordHumidity(self,queue,intStatusCode,intStatusArray,loggingLevel,runPseudo) :
     """
       recording the humidity inside the box
     """
-    self.p_config(queue) 
+    self.p_config(queue,loggingLevel) 
     self.init(self,["Humidity"], runPseudo)
     time.sleep(1)
     fltStopUpperLimit = 5.0 # upper limit in % for humidity to stop the system
@@ -562,95 +495,57 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: Watchdog -----------------------------------------------------------
-  def funcWatchDog (self,queue, intStatusCode, intStatusArray):
+  def funcWatchDog (self,queue, intStatusCode, intStatusArray,verbose,loggingLevel):
     strWatchDog = '< WATCHDOG >'
-    self.p_config(queue)
+    self.p_config(queue,loggingLevel)
+
+    mailList = ['wheidorn@iastate.edu','wheidorn@gmail.com']
+    SE = clsSendEmails()
+    def mail(strTitle,strMessage):
+      if verbose == True:  
+        for p in mailList: 
+          SE.funcSendMail(p,strTitle,strMessage)
+          logging.info(strWatchDog+' Email sent to '+ p) 
+          time.sleep(1)
+
+ 
+    strProcesses = ['Listener','Temperature Recorder','Humidity Recorder','RunChillerPump']
+    intCurrentState = [0,0,0,0]
+    sentMessage = False
 
     while intStatusCode.value < StatusCode.DONE:      
       logging.debug( strWatchDog + ' Checking all process statuses')
       i = 0
       for p in intStatusArray:
-        i += 1 
-        if p == 0:
-          logging.warning(strWatchDog+' PROCESS '+ str(i)+' Timed Out!!!!')
+          
+        if p == 0 and intCurrentState[i] == 1:
+          logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' is still Timed Out!!!!')
+          if i == 0 or i == 1 or i == 2:# If it is the logger, or one of the two recorders start shutdown
+            intStatusCode.value = StatusCode.PANIC
+            intCurrentState[i] = 2
+          if i == 3:# If it is the chiller loop alert the authorities, but do not shutdown
+            logging.warning(strWatchDog+' PROCESS: '+strProcesses[i]+' Killing System! ALERT THE AUTHORITIES!!!')  
+            mail('Major Error!!!!!!!!','The watchdog lost track of the Chiller and Pump control!!!!')
+            intCurrentState[i] = 2 
+        if p == 0 and intCurrentState[i] == 0: #Flags and Sends a timeout warning and sets the state to timed out
+          logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!!')
+          intCurrentState[i] = 1
 
-      logging.debug( strWatchDog + ' All Okay!')
-      logging.debug( strWatchDog + ' Resetting all process statuses to zero')
-      for i in range(len(intStatusArray)):
+        if p == 1: #Resets all current states back to zero
+          intCurrentState[i] = 0
+
+        #Resets all process statuses to zero
         intStatusArray[i] = 0
-      time.sleep(30)
+        i += 1 
 
-# -----------------------------------------------------------------------------
-def runRoutine( ) :
-  """
-    Run main routine
-  """
-
-  #First must run a short routine that allows the user to determine if it will run with PseudoData
-
-  val = input("**********     USER:Do you wish to run with pseudo data? (y/n)\n")
-  runPseudo = False
-  if val == 'y':
-    runPseudo = True
-  if runPseudo == False:
-    input("**********     USER: Check the status of the pump, chiller and pipes. If all are set press enter")
-  
-  val = input("**********     USER:Do you wish to send emails to notify when shutdown occurs? (y/n)\n")
-  verbose = False
-  if val == 'y':
-    verbose = True
-  
-  queue = mp.Queue(-1)
-  intStatusCode = Value('i',0)
-  fltProgress = Value('d',0)   
-  intStatusArray = Array('i',[1,1,1,1]) 
-    #
-    # run preset Chiller and Pump routine using two separated processing
-    # one for Chiller Pump running,
-    # the other for Temperature and Humidity recording
-    # 
-   
-  mpList = []
-  mpList.append( mp.Process(target = clsChillerRun.procListener,name = 'Listener', args =(clsChillerRun,queue,intStatusArray)) ) 
-  #mpList.append( mp.Process(target = clsChillerRun.funcMessenger, name = 'Messengr', args =(clsChillerRun,queue,intStatusCode,verbose)) )
-  mpList.append( mp.Process(target = clsChillerRun.recordTemperature,name = 'Temp Rec', args =(clsChillerRun,queue,intStatusCode,intStatusArray,runPseudo,)) )
-  mpList.append( mp.Process(target = clsChillerRun.recordHumidity,name = 'Humi Rec', args =(clsChillerRun,queue,intStatusCode,intStatusArray,runPseudo)) )
-  mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'RunChill', args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltProgress,runPseudo,)) ) 
-  mpList.append( mp.Process(target = clsChillerRun.funcWatchDog, name = 'WatchDog', args =(clsChillerRun,queue,intStatusCode,intStatusArray)) )
-  
-  print("**********     BEGINNING PROCESSES")
-  print("---------------------------------------------------------------------------")
-  for p in mpList:
-    p.start()
-    print("**********     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive())+" PseudoData?: "+str(runPseudo))    
-    time.sleep(5)
-    print("---------------------------------------------------------------------------")
- 
-  procUserCommands(queue,intStatusCode,fltProgress,mpList,runPseudo)
-
-  print("**********     CHILLER SHUTDOWN, Terminating ANY Remaining Processes")
-
-    # stops the Listener; Temperature and Humidity recorders are killed if they did not shut down properly
-  for p in mpList:
-    p.terminate()
-
-  print("**********     ALL PROCESSES ARE SHUTDOWN! HAVE A NICE DAY!")
-
-
-def main():
-  """
-    test running the whole routine
-  """
-  intro()
-  print("**********     Creating Log " + logName)
-
-  logging.basicConfig(filename=logName, 
-                      level=loggingLevel, \
-                      format='%(asctime)s %(levelname)s: %(message)s', \
-                      datefmt='%m/%d/%Y %I:%M:%S %p')
- 
-  runRoutine()
-
-if __name__ == '__main__' : 
-  mp.set_start_method('spawn')
-  main()
+      for sec in range(30):
+        time.sleep(1)
+        if intStatusCode.value == StatusCode.PANIC and sentMessage == False:
+          mail('Shutdown Triggered!!','The system is shutting down normally')
+          sentMessage = True
+        if intStatusCode.value == StatusCode.FATAL and sentMessage == False:
+          mail('Shutdown Triggered!!','The system was shut down without time to properly cool!')
+          sentMessage = True
+        if intStatusCode.value == StatusCode.DONE and sentMessage == False:
+          mail('System Killed!!','The processes have been killed!')
+          sentMessage = True

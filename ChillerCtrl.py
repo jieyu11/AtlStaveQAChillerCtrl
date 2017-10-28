@@ -10,7 +10,7 @@ PVN56T17V5338B B motor; and a Liquiflo H5FSPP4B002606US-8(-60) booster pump.
 This file contains the main body of code.  
 
 History: ----------------------------------------------------------------------
-	V1.0 - Jul-2017  First public release.
+	V1.0 - Oct-2017  First public release.
 	
 Environment: ------------------------------------------------------------------
 	This program is written in Python 3.6.  Python can be freely downloaded from 
@@ -27,157 +27,155 @@ Dictionary of abbreviations: ---------------------------------------------------
 
 """
 
-
 # Import section ---------------------------------------------------------------
 
 import logging                  # logging:             https://docs.python.org/3.6/howto/logging.html
-import configparser             # configuration:       https://docs.python.org/3.6/library/configparser.html
 import sys                      # system specific:     https://docs.python.org/3.6/library/sys.html
 import time                     # Time access:         https://docs.python.org/3.6/library/time.html
 from datetime import datetime   # Date and time types: https://docs.python.org/3.6/library/datetime.html
-from ChillerRdDevices import *
-from ChillerRdConfig  import *
-from ChillerRdCmd     import *
+from ChillerRun import *
+from multiprocessing import Process, Value, Array # https://docs.python.org/3.6/library/multiprocessing.html
+import multiprocessing as mp
+
+from enum import IntEnum
+from functools import total_ordering
 
 # Global data section ----------------------------------------------------------
 
-strpyversion = "3.6"; 
-intGlobStatus = 0 # 0: OK, 1: WARNING, 2: ERROR, 3: FATAL
+strpyversion = "3.6"
+strcodeversion ="V1.0"
+loggingLevel = logging.INFO
+
 
 # Module data section ----------------------------------------------------------
-
-
-# 
-# add customized logging level higher than INFO_LEVEL = 20 
-# 
-logging.addLevelName( 21, "DATA")
-def data(self, message, *args, **kws):
-  if self.isEnabledFor( 21 ):
-    self._log( 21, message, args, **kws) 
-logging.Logger.data = data
-
 
 # Local data section -----------------------------------------------------------
 
 # Main code section ------------------------------------------------------------
 
-# ------------------------------------------------------------------------------
-# ------------------------------- FUNCTIONS ------------------------------------
-def shutdownChillerPump () :
-  """
-    procedure to shutdown the Chiller or Pump out of:
-    1) Emergency
-    2) Runtime error
-    3) End of run
-  """
-
-  strPumpStopRPM = '10'
-  strChiStopTemp = '20'
-  try:
-    strPumpStopRPM = istRunConfig[ 'Pump' ][ 'StopRPM' ]
-    strChiStopTemp = istRunConfig[ 'Chiller' ][ 'StopTemperature' ]
-  except:
-    raise KeyError("Sections: Pump, Chiller, Key: StopRPM, StopTemperature not present in configure: %s" % \
-                   istRunConfig.name() )
-
-  # set Pump RPM to the stop value
-  # then shutdown Pump 
-  # set Chiller Temperature to the stop value
-  # then shutdown Chiller
-  strCommandDict = [ 'iRPM=' + strPumpStopRPM :            'Pump change RPM to '+strPumpStopRPM, 
-                     'iStop' :                             'Pump shutting down', 
-                     'cChangeSetpoint=' + strChiStopTemp : 'Chiller change set point to ' + strChiStopTemp, 
-                     'cStop' :                             'Chiller shutting down']
-
-  for strcommand, strlog in strCommandDict.items() :
-    strdevname, strcmdname, strcmdpara = istCommand.getdevicecommand( strcommand )
-    istDevHdl.readdevice( strdevname, strcmdname, strcmdpara)
-
-    logging.info( strlog );
-
-    # wait for 1 seconds
-    time.sleep(1) 
-
-
-def runChillerPump() :
-  """ 
-    main routine of running the Chiller and Boost Pump
-  """
-
-def recordTemperatureHumidity() :
-  """
-    recording temperatures of ambient, box, inlet, outlet and
-    the humidity inside the box
-  """
-
-# ------------------------------------------------------------------------------
 # ------------------------------- LOG ------------------------------------------
-strlogfilename = 'Log_' + datetime.now().strftime('%Y-%m-%d_%Hh%Mm%Ss') + '.txt'
-logging.basicConfig(filename=strlogfilename, level=logging.DEBUG, \
+
+logName = str(time.strftime( '%Y-%m-%d_%I-%M%p_',time.localtime()))+'ChillerRun.log'
+
+logging.basicConfig(filename=logName,
+                    level=loggingLevel, \
                     format='%(asctime)s %(levelname)s: %(message)s', \
                     datefmt='%m/%d/%Y %I:%M:%S %p')
 logging.info('Python version: ' + strpyversion )
-logging.info('Starting the program.');
 
 # ------------------------------------------------------------------------------
-# ------------------------------- CONFIG ---------------------------------------
+# System Loading ---------------------------------------------------------------
 
-# configuration of how the devices are connected to the PC
-istConnCfg = clsConfig( 'ChillerConnectConfig.txt' )
-
-# configuration of the running routine
-istRunCfg = clsConfig( 'ChillerRunConfig.txt' )
-
-# ------------------------------------------------------------------------------
-# ------------------------------- DEVICES --------------------------------------
-
-# pass the configuration of how the devices connected to the PC
-# to the device handler 
-istDevHdl = clsDevicesHandler( istConnCfg )
+def intro():
+  print('---------------------------------------------------------------------------\n\n')
+  print('                           Chiller Controller                              \n')
+  print('                             Version  :'+str(strcodeversion))
+  print('                             PyVersion: '+str(strpyversion)+'\n\n')
+  print('---------------------------------------------------------------------------\n') 
+  print("**********     Creating Log " + logName)
 
 # ------------------------------------------------------------------------------
-# ------------------------------ COMMANDS --------------------------------------
+# Function User Commands -------------------------------------------------------
 
-# interpretation of machine readable commands into human readable commands
-istCommand = clsCommands( 'ChillerEquipmentCommands.txt' )
+def procUserCommands(queue,intStatusCode,fltProgress,procList,runPseudo):
+  while intStatusCode.value < StatusCode.DONE:
+    print(" ")
+    print("__Commands_During_Operation__")
+    print("kill = stops all processes, does not shutdown pump or chiller")
+    print("eshutdown = stops the chiller and then pump without full cooldown")
+    print("shutdown = sets the system into a shutdown mode")
+    print("status = shows current status of all running processes")
+    print("progress = shows how far into the loop the system is")
+    print(" ")
 
+    val = input("Input::: \n")
+    if val == 'kill':
+      processVal = input("WARNING! This just kills the program!It will leave the Chiller/Pump in their current state! Proceed? (y/n) \n")
+      if processVal == 'y':
+        intStatusCode.value = StatusCode.DONE
 
-#commands = ['cStart', 'cStop' ]
-#commands = ['cSetpoint?', 'cChangeSetpoint']
-#commands = ['cChangeSetpoint=20', 'cStop']
-#commands = ['hRead']
-#commands = ['tRead']
-#commands = ['iUnlockDrive', 'iStart', 'iRPM=11'] # 'iStop']
-#commands = ['iStop', "cStop"]
-#commands = ['iStart', 'iStop']
-#commands = ['iRPM=20']
+    if val == 'eshutdown':
+      intStatusCode.value = StatusCode.FATAL
 
-commands = ['cChangeSetpoint=22', 'cChangeSetpoint=45', 'cChangeSetpoint=22', 'cStop']
-
+    if val == 'shutdown':
+      intStatusCode.value = StatusCode.PANIC
+    
+    if val == 'status':
+      print("     Global Status: "+str(intStatusCode.value)+"  Using PseudoData?: "+ str(runPseudo))
+      for p in procList:
+        print("     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))          
+      
+    if val == 'progress':
+      if intStatusCode.value == StatusCode.OK:
+        print("     Loop Progress: "+str(fltProgress.value)+'%')
+      if intStatusCode.value > StatusCode.OK:
+        print("     Loop Progress: Finished")
 
 # ------------------------------------------------------------------------------
 # ---------------------------- MAIN ROUTINE ------------------------------------
+def main( ) :
+  """
+    Run main routine
+  """
+  intro()
 
-strdevname_h, strcmdname_h, strcmdpara_h = istCommand.getdevicecommand( 'hRead' )
-strdevname_t, strcmdname_t, strcmdpara_t = istCommand.getdevicecommand( 'tRead' )
+  #First must run a short routine that allows the user to determine if it will run with PseudoData
 
-for devcmd in commands : 
-  strdevname, strcmdname, strcmdpara = istCommand.getdevicecommand( devcmd )
-  if strcmdpara == "" : 
-    logging.info(' - OK, now perform command ' + strcmdname + ' on ' + strdevname )
-  else:
-    logging.info(' - OK, now perform command ' + strcmdname + ' on ' + strdevname + " with parameter " + strcmdpara)
-  istDevHdl.readdevice( strdevname, strcmdname, strcmdpara)
+  val = input("**********     USER:Do you wish to run with pseudo data? (y/n)\n")
+  runPseudo = False
+  if val == 'y':
+    runPseudo = True
+  if runPseudo == False:
+    input("**********     USER: Check the status of the pump, chiller and pipes. If all are set press enter")
+  
+  val = input("**********     USER:Do you wish to send emails to notify when shutdown occurs? (y/n)\n")
+  verbose = False
+  if val == 'y':
+    verbose = True
+  
+  queue = mp.Queue(-1)
+  intStatusCode = Value('i',0)
+  fltProgress = Value('d',0)   
+  intStatusArray = Array('i',[1,1,1,1]) 
+    #
+    # run preset Chiller and Pump routine using two separated processing
+    # one for Chiller Pump running,
+    # the other for Temperature and Humidity recording
+    # 
+   
+  mpList = []
+  mpList.append( mp.Process(target = clsChillerRun.procListener,name = 'Listener', \
+                            args =(clsChillerRun,queue,intStatusArray,logName)) )  
+  mpList.append( mp.Process(target = clsChillerRun.recordTemperature,name = 'Temp Rec', \
+                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,loggingLevel,runPseudo,)) )
+  mpList.append( mp.Process(target = clsChillerRun.recordHumidity,name = 'Humi Rec', \
+                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,loggingLevel,runPseudo)) )
+  mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'RunChill', \
+                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltProgress,loggingLevel,runPseudo,)) ) 
+  mpList.append( mp.Process(target = clsChillerRun.funcWatchDog, name = 'WatchDog', \
+                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,verbose,loggingLevel)) )
+  
+  print("**********     BEGINNING PROCESSES")
+  print("---------------------------------------------------------------------------")
+  for p in mpList:
+    p.start()
+    print("**********     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive())+" PseudoData?: "+str(runPseudo))    
+    time.sleep(5)
+    print("---------------------------------------------------------------------------")
+ 
+  procUserCommands(queue,intStatusCode,fltProgress,mpList,runPseudo)
 
-  for iw in range(0,10,1):
-    #print ("waiting %d seconds " % iw )
-    istDevHdl.readdevice( strdevname_h, strcmdname_h, strcmdpara_h)
-    # it needs ~25 seconds to read from thermocouple
-    istDevHdl.readdevice( strdevname_t, strcmdname_t, strcmdpara_t)
-    time.sleep(2) # sleep 20 seconds
+  print("**********     CHILLER SHUTDOWN, Terminating ANY Remaining Processes")
 
+    # stops the Listener; Temperature and Humidity recorders are killed if they did not shut down properly
+  for p in mpList:
+    p.terminate()
 
+  print("**********     ALL PROCESSES ARE SHUTDOWN! HAVE A NICE DAY!")
 
+if __name__ == '__main__' : 
+  mp.set_start_method('spawn')
+  main()
 
 # Upon startup print on computer screen this code version.
 #
