@@ -42,7 +42,7 @@ from functools import total_ordering
 class StatusCode (IntEnum) :
   """
     This defines is the value that is used for the global intStatusCode
-    which will signals shutdown and type of shutdown
+    which will signal shutdown and type of shutdown
   """
   OK      = 0  # -> all devices are fine
   PANIC   = 1  # -> Puts the system into a normal shutdown
@@ -132,7 +132,7 @@ class clsChillerRun :
     '''
   def funcPetDog (intProcess,intStatusArray): #Puts the WatchDog into OK, which stops an error
     intStatusArray[intProcess] = 1
-  def funcWackDog (intProcess,intStatusArray,intStatus): # Gives the Watchdog an error sign
+  def funcWackDog (intProcess,intStatusArray,intStatus): # Gives the Watchdog an error sign, not currently in use
     intStatusArray[intProcess] = intStatus
 # -----------------------------------------------------------------------------
 # Listener Process ------------------------------------------------------------
@@ -171,29 +171,6 @@ class clsChillerRun :
     root.addHandler(h) # Connects the logging process to the handler
     root.setLevel(loggingLevel) # This sets what level is logged in each process
 
-# -----------------------------------------------------------------------------
-  def funcMessenger(self,queue,intStatusCode,verbose,loggingLevel):
-    """
-      This process watches the status code. If an error occurs, then if verbose
-      is set to true it will send emails to the email list.
-    """
-    
-    self.p_config(queue,loggingLevel)
-
-    mailList = ['wheidorn@iastate.edu','wheidorn@gmail.com']
-    SE = clsSendEmails()
-
-    if verbose == True:
-      while intStatusCode.value < StatusCode.DONE:
-        time.sleep(1)
-        if intStatusCode.value >= StatusCode.PANIC:
-          for p in mailList: 
-            SE.funcSendMail(p,"Shutting Down Chiller","The chiller has been triggered to shutdown")
-            logging.info('< RUNNING > Messenger has sent email to '+ p) 
-          break
- 
-    logging.info('< RUNNING > Messenger has finished')
-
 # ------------------------------------------------------------------------------
 # Function: Start Chiller Pump -------------------------------------------------
   def startChillerPump (self,queue,intStatusCode) :
@@ -206,7 +183,7 @@ class clsChillerRun :
     """
     logging.info(self._strclassname + " Starting Chiller and Pump") 
     
-# Start Pump and Chiller if necessary TODO Make it conditional if they are already on
+    # Start Pump and Chiller if necessary TODO Make it conditional if they are already on
     cmdList = ['cStart','iUnlockDrive','iUnlockParameter','iStart']
     for cmd in cmdList:
       self.sendcommand(self, cmd, intStatusCode)
@@ -496,19 +473,45 @@ class clsChillerRun :
 # ------------------------------------------------------------------------------
 # Function: Watchdog -----------------------------------------------------------
   def funcWatchDog (self,queue, intStatusCode, intStatusArray,verbose,loggingLevel):
+    '''
+      The Watchdog is the system protection protocol. It has 2 purposes,
+      1. to keep track of errors
+      2. to notify the operators when end conditions are met
+      Errors
+        The system currently is written to deal mainly with timeout errors, though
+        it will be easy to add in more complicated errors as well.
+
+        TimeOut- The global intStatusArray is used for this. Every 30 seconds the
+        watchdog looks at each process's value on the intStatusArray and then sets
+        the value to 0. In each process's routine, there is a function called
+        PetDog, which sets the value to 1. If the value is still at 0 after 30 seconds
+        the watchdog sends out a warning. After sending out the warning, the watchdog
+        changes the value of intCurrentState. Currently there are 3 values for each
+        process in this array.
+        intCurrentState = 0, normal state
+                          1, Timed out once!...
+                          2, Timed out twice!... ->Send Email, and/or begin shutdown->Process is considered dead
+
+        Others- Currently there are no specific error codes, though using higher values of intStatusArray
+        or intCurrentState could be used to give that information with the WackDog function
+      Emailing
+        This uses the SendMail.py macro to send emails. Once an email has been
+        sent it will change sentMessage to True and not send any more... because
+        the system will be waiting for personal intervention.  
+    '''
     strWatchDog = '< WATCHDOG >'
     self.p_config(queue,loggingLevel)
 
-    mailList = ['wheidorn@iastate.edu','wheidorn@gmail.com']
+    mailList = ['wheidorn@iastate.edu','wheidorn@gmail.com']# This is the list of email addresses the program will send emails too
     SE = clsSendEmails()
-    def mail(strTitle,strMessage):
+    def mail(strTitle,strMessage):#This sends an email out if the system is verbose
       if verbose == True:  
+        print('Sending Message: '+strTitle+': '+strMessage)
         for p in mailList: 
           SE.funcSendMail(p,strTitle,strMessage)
           logging.info(strWatchDog+' Email sent to '+ p) 
           time.sleep(1)
 
- 
     strProcesses = ['Listener','Temperature Recorder','Humidity Recorder','RunChillerPump']
     intCurrentState = [0,0,0,0]
     sentMessage = False
@@ -517,27 +520,37 @@ class clsChillerRun :
       logging.debug( strWatchDog + ' Checking all process statuses')
       i = 0
       for p in intStatusArray:
-          
+
+        #How to deal with a second Timeout          
         if p == 0 and intCurrentState[i] == 1:
           logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' is still Timed Out!!!!')
           if i == 0 or i == 1 or i == 2:# If it is the logger, or one of the two recorders start shutdown
             intStatusCode.value = StatusCode.PANIC
             intCurrentState[i] = 2
-          if i == 3:# If it is the chiller loop alert the authorities, but do not shutdown
+          else:# If it is the chiller loop alert the authorities, but do not shutdown
             logging.warning(strWatchDog+' PROCESS: '+strProcesses[i]+' Killing System! ALERT THE AUTHORITIES!!!')  
             mail('Major Error!!!!!!!!','The watchdog lost track of the Chiller and Pump control!!!!')
-            intCurrentState[i] = 2 
+            sentMessage = True
+            intCurrentState[i] = 2
+
+        #How to deal with a single timeout
         if p == 0 and intCurrentState[i] == 0: #Flags and Sends a timeout warning and sets the state to timed out
           logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!!')
           intCurrentState[i] = 1
+          if i == 0:
+            print(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!! Triggering Shutdown')
+            intStatusCode.value = StatusCode.PANIC
+            intCurrentState[i] = 2
 
-        if p == 1: #Resets all current states back to zero
+        #Resetting all petted processes
+        if p == 1:
           intCurrentState[i] = 0
 
         #Resets all process statuses to zero
         intStatusArray[i] = 0
         i += 1 
 
+      #Messaging due to shutdown conditions being met
       for sec in range(30):
         time.sleep(1)
         if intStatusCode.value == StatusCode.PANIC and sentMessage == False:
@@ -547,5 +560,5 @@ class clsChillerRun :
           mail('Shutdown Triggered!!','The system was shut down without time to properly cool!')
           sentMessage = True
         if intStatusCode.value == StatusCode.DONE and sentMessage == False:
-          mail('System Killed!!','The processes have been killed!')
+          mail('System Done!!','The system has been shutdown normally and all processes have been killed!')
           sentMessage = True
