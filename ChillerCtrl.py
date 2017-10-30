@@ -45,7 +45,8 @@ from functools import total_ordering
 strpyversion = "3.6"
 strcodeversion ="V1.0"
 loggingLevel = logging.INFO
-
+strStartTime = str(time.strftime( '%m/%d/%Y %I:%M:%S %p',time.localtime()))
+strStartTimeVal = time.time()
 
 # Module data section ----------------------------------------------------------
 
@@ -65,8 +66,10 @@ logging.info('Python version: ' + strpyversion )
 
 # ------------------------------------------------------------------------------
 # System Loading ---------------------------------------------------------------
-
 def intro():
+  '''
+    This is a short intro that the system will show upon startup
+  '''
   print('---------------------------------------------------------------------------\n\n')
   print('                           Chiller Controller                              \n')
   print('                             Version  :'+str(strcodeversion))
@@ -78,16 +81,19 @@ def intro():
 # Function User Commands -------------------------------------------------------
 
 def procUserCommands(queue,intStatusCode,fltProgress,procList,runPseudo):
+  '''
+    This is a list of commands that will be active once the system has been started
+  '''
   while intStatusCode.value < StatusCode.DONE:
     print(" ")
-    print("__Commands_During_Operation__")
-    print("kill = stops all processes, does not shutdown pump or chiller")
+    print("__General_Commands_During_Operation__")
+    print("progress  = shows how far into the loop the system is")
+    print("status    = shows current status of all running processes")
+    print("kill      = stops all processes, does not shutdown pump or chiller")
     print("eshutdown = stops the chiller and then pump without full cooldown")
-    print("shutdown = sets the system into a shutdown mode")
-    print("status = shows current status of all running processes")
-    print("progress = shows how far into the loop the system is")
+    print("shutdown  = sets the system into a shutdown mode") 
     print(" ")
-
+    
     val = input("Input::: \n")
     if val == 'kill':
       processVal = input("WARNING! This just kills the program!It will leave the Chiller/Pump in their current state! Proceed? (y/n) \n")
@@ -110,7 +116,29 @@ def procUserCommands(queue,intStatusCode,fltProgress,procList,runPseudo):
         print("     Loop Progress: "+str(fltProgress.value)+'%')
       if intStatusCode.value > StatusCode.OK:
         print("     Loop Progress: Finished")
-
+      print("     System Started: "+str(strStartTime ))
+      print("     Current Run Time: " + str(time.time()-strStartTimeVal))
+      #print("     Estimated loop time remaining... " + str((((time.time()-strStartTimeVal)/(0.0001+fltProgress.value))/0.60)-(time.time()/60)) + ' min')
+    if val == 'help':
+      print("__Full_list_of_Commands__")
+      print("pkill     = kills an individual process")
+      print("kill      = stops all processes, does not shutdown pump or chiller")
+      print("eshutdown = stops the chiller and then pump without full cooldown")
+      print("shutdown  = sets the system into a shutdown mode")
+      print("progress  = shows how far into the loop the system is")
+      print("status    = shows current status of all running processes")
+      print("help      = shows all other commands")
+ 
+    if val == 'pkill':
+      Pnames=[]
+      for p in procList:
+        Pnames.append(p.name) 
+      processVal = input('Of '+str(Pnames)+ ' Type the process you wish to kill?\n')
+      i = 0
+      for p in Pnames: 
+        if processVal == p:
+          procList[i].terminate()
+        i=i+1
 # ------------------------------------------------------------------------------
 # ---------------------------- MAIN ROUTINE ------------------------------------
 def main( ) :
