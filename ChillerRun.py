@@ -45,14 +45,27 @@ class StatusCode (IntEnum) :
     which will signal shutdown and type of shutdown
   """
   OK      = 0  # -> all devices are fine
-  PANIC   = 1  # -> Puts the system into a normal shutdown
+  ERROR   = 1  # -> Puts the system into a normal shutdown
   FATAL   = 2  # -> Turns off the Chiller and Pump right away
   DONE    = 3  # -> Says that both the Chiller and Pump are both off, Kill all the processes
   def __lt__(self, other):
     if self.__class__ is other.__class__:
       return self.value < other.value
     return NotImplemented
+# ------------------------------------------------------------------------------
+# Class ProcessCode -------------------------------------------------------------
 
+class ProcessCode (IntEnum) :
+  """
+    This defines the values of the global intStatusArray, which keeps track
+    of the individual processes.
+  """
+  OK      = 0  # -> process has been petted, meaning it is running normally
+  SLEEP   = 1  # -> process needs to be petted, otherwise it will cause a timeout warning
+  DEAD    = 2  # -> process has not been petted for 60 seconds. It is now considered dead
+                   #The system will be put in the appropriate shutdown state
+  ERROR1  = 3  # -> process has other specific error
+ 
 # ------------------------------------------------------------------------------
 # Class ChillerRun -------------------------------------------------------------
 class clsChillerRun : 
@@ -121,19 +134,6 @@ class clsChillerRun :
       #if intStatusCode.value < StatusCode.ERROR:  
       #  intStatusCode.value = StatusCode.ERROR
       raise ValueError('Could not find user command: %s in %s' % (strusercommand, self._istCommand.cfgname() ))
-# ------------------------------------------------------------------------------
-# Functions: PetDog,WackDog ----------------------------------------------------
-    '''
-    These functions are a part of the WatchDog system. Each process has an assigned
-    spot in the array. Every 30 seconds the array is checked by the watchdog.
-    The watchdog then sets all processes spots to 0. In each process loop there is
-    funcPetDog that sets the spot to 1 which is the OK sign. There is also WackDog
-    this will put the spot into a number that can be a given error.
-    '''
-  def funcPetDog (intProcess,intStatusArray): #Puts the WatchDog into OK, which stops an error
-    intStatusArray[intProcess] = 1
-  def funcWackDog (intProcess,intStatusArray,intStatus): # Gives the Watchdog an error sign, not currently in use
-    intStatusArray[intProcess] = intStatus
 # -----------------------------------------------------------------------------
 # Listener Process ------------------------------------------------------------
   def procListener (self, queue, intStatusArray,logName) :
@@ -219,7 +219,7 @@ class clsChillerRun :
          - shutdown Chiller in the end
 
       Shutdown conditions:
-      1) Emergency (status = PANIC) causes normal shutdown
+      1) Emergency (status = ERROR) causes normal shutdown
       2) Major Emergency (status = FATAL) does not allow for cooldown
       3) End of run (status = DONE) signals to all processes that the program is done
     """
@@ -264,7 +264,7 @@ class clsChillerRun :
         #!!!!!time.sleep( intTimeCool )
         for i in range( intTimeCool ):
           # check second by second the status of the system
-          if intStatusCode.value > StatusCode.PANIC: break 
+          if intStatusCode.value > StatusCode.ERROR: break 
           time.sleep( 1 ) # in seconds
           self.funcPetDog(3,intStatusArray)
     intStatusCode.value = StatusCode.DONE  
@@ -413,12 +413,12 @@ class clsChillerRun :
           if self._fltTempLiquid < fltTLowerLimit:
             logging.error( self._strclassname + ' liquid temperature '+ self._fltTempLiquid +
                            ' < lower limit ' + fltTLowerLimit + '! Return! ') 
-            intStatusCode.value = StatusCode.PANIC
+            intStatusCode.value = StatusCode.ERROR
 
           if self._fltTempLiquid > fltTUpperLimit:
             logging.error( self._strclassname + ' liquid temperature '+ self._fltTempLiquid +
                            ' > upper limit ' + fltTUpperLimit + '! Return! ') 
-            intStatusCode.value = StatusCode.PANIC
+            intStatusCode.value = StatusCode.ERROR
     # after finishing running
     logging.info( self._strclassname + ' Temperature finished recording. ' )
 
@@ -460,7 +460,7 @@ class clsChillerRun :
           logging.error( self._strclassname + ' at liquid temperature '+ str( self._fltTempLiquid ) +
                          ' box humidity ' + str( fltHumidity ) + '% > ' + str( fltStopUpperLimit ) + 
                          '% upper limit! Return! ')
-          intStatusCode.value = StatusCode.PANIC 
+          intStatusCode.value = StatusCode.ERROR 
           return
         elif fltHumidity > fltWarnUpperLimit : 
           logging.warning( self._strclassname + ' at liquid temperature '+ str( self._fltTempLiquid ) +
@@ -472,7 +472,19 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: Watchdog -----------------------------------------------------------
-  def funcWatchDog (self,queue, intStatusCode, intStatusArray,verbose,loggingLevel):
+    '''
+    These functions are a part of the WatchDog system. Each process has an assigned
+    spot in the array. Every 30 seconds the array is checked by the watchdog.
+    The watchdog then sets all processes spots to 0. In each process loop there is
+    funcPetDog that sets the spot to 1 which is the OK sign. There is also WackDog
+    this will put the spot into a number that can be a given error.
+    '''
+  def funcPetDog (intProcess,intStatusArray): #Puts the WatchDog into OK, which stops an error
+    intStatusArray[intProcess] = 1
+  def funcPokeDog (intProcess,intStatusArray,intStatus): # Gives the Watchdog an error sign, not currently in use
+    intStatusArray[intProcess] = intStatus
+
+  def funcWatchDog (self,queue, intStatusCode, intStatusArray,bolSendEmail,loggingLevel):
     '''
       The Watchdog is the system protection protocol. It has 2 purposes,
       1. to keep track of errors
@@ -488,9 +500,9 @@ class clsChillerRun :
         the watchdog sends out a warning. After sending out the warning, the watchdog
         changes the value of intCurrentState. Currently there are 3 values for each
         process in this array.
-        intCurrentState = 0, normal state
-                          1, Timed out once!...
-                          2, Timed out twice!... ->Send Email, and/or begin shutdown->Process is considered dead
+        intCurrentState = OK, normal state
+                          SLEEP, Timed out once!...
+                          DEAD, Timed out twice!... ->Send Email, and/or begin shutdown->Process is considered dead
 
         Others- Currently there are no specific error codes, though using higher values of intStatusArray
         or intCurrentState could be used to give that information with the WackDog function
@@ -504,8 +516,8 @@ class clsChillerRun :
 
     mailList = ['wheidorn@iastate.edu','wheidorn@gmail.com']# This is the list of email addresses the program will send emails too
     SE = clsSendEmails()
-    def mail(strTitle,strMessage):#This sends an email out if the system is verbose
-      if verbose == True:  
+    def mail(strTitle,strMessage):#This sends an email out if bolSendEmail == true
+      if bolSendEmail == True:  
         print('Sending Message: '+strTitle+': '+strMessage)
         for p in mailList: 
           SE.funcSendMail(p,strTitle,strMessage)
@@ -513,7 +525,7 @@ class clsChillerRun :
           time.sleep(1)
 
     strProcesses = ['Listener','Temperature Recorder','Humidity Recorder','RunChillerPump']
-    intCurrentState = [0,0,0,0]
+    intCurrentState = [ProcessCode.OK,ProcessCode.OK,ProcessCode.OK,ProcessCode.OK]
     sentMessage = False
 
     while intStatusCode.value < StatusCode.DONE:      
@@ -522,43 +534,43 @@ class clsChillerRun :
       for p in intStatusArray:
 
         #How to deal with a second Timeout          
-        if p == 0 and intCurrentState[i] == 1:
+        if p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.SLEEP:
           logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' is still Timed Out!!!!')
           if i == 0 or i == 1 or i == 2:# If it is the logger, or one of the two recorders start shutdown
-            intStatusCode.value = StatusCode.PANIC
-            intCurrentState[i] = 2
+            intStatusCode.value = StatusCode.ERROR
+            intCurrentState[i] = ProcessCode.DEAD
           else:# If it is the chiller loop alert the authorities, but do not shutdown
             logging.warning(strWatchDog+' PROCESS: '+strProcesses[i]+' Killing System! ALERT THE AUTHORITIES!!!')  
             mail('Major Error!!!!!!!!','The watchdog lost track of the Chiller and Pump control!!!!')
             sentMessage = True
-            intCurrentState[i] = 2
+            intCurrentState[i] = ProcessCode.DEAD
 
         #How to deal with a single timeout
-        if p == 0 and intCurrentState[i] == 0: #Flags and Sends a timeout warning and sets the state to timed out
+        if p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.OK: #Flags and Sends a timeout warning and sets the state to timed out
           logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!!')
-          intCurrentState[i] = 1
-          if i == 0:
+          intCurrentState[i] = ProcessCode.SLEEP
+          if i == 0:# If the listener times out, we should just put it into shutdown, because we will no longer be logging
             print(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!! Triggering Shutdown')
-            intStatusCode.value = StatusCode.PANIC
-            intCurrentState[i] = 2
+            intStatusCode.value = StatusCode.ERROR
+            intCurrentState[i] = ProcessCode.DEAD
 
         #Resetting all petted processes
-        if p == 1:
-          intCurrentState[i] = 0
+        if p == ProcessCode.OK:
+          intCurrentState[i] = ProcessCode.OK
 
-        #Resets all process statuses to zero
-        intStatusArray[i] = 0
+        #Resets all process statuses to SLEEP
+        intStatusArray[i] = ProcessCode.SLEEP
         i += 1 
 
       #Messaging due to shutdown conditions being met
       for sec in range(30):
         time.sleep(1)
-        if intStatusCode.value == StatusCode.PANIC and sentMessage == False:
-          mail('Shutdown Triggered!!','The system is shutting down normally')
+        if intStatusCode.value == StatusCode.ERROR and sentMessage == False:
+          mail('ERROR Shutdown Triggered!!','The system is shutting down normally')
           sentMessage = True
         if intStatusCode.value == StatusCode.FATAL and sentMessage == False:
-          mail('Shutdown Triggered!!','The system was shut down without time to properly cool!')
+          mail('FATAL Shutdown Triggered!!','The system was shut down without time to properly cool!')
           sentMessage = True
         if intStatusCode.value == StatusCode.DONE and sentMessage == False:
-          mail('System Done!!','The system has been shutdown normally and all processes have been killed!')
+          mail('DONE Shutdown!!','The system has been shutdown normally and all processes have been killed!')
           sentMessage = True
