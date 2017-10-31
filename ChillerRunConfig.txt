@@ -46,8 +46,8 @@ StopRPM : 10  # the RPM value when the pump stops after running
 
 #  *** Run parameters for the Omega HH314A humidity meter. ***
 [Humidity]
-StopUpperThreshold :  2 # in per cent, the upper limit of the humidity to STOP the system when running at low temperature
-WarnUpperThreshold :  5 # in per cent, the upper limit of the humidity to WARN the system when running at low temperature
+StopUpperThreshold :  5 # in per cent, the upper limit of the humidity to STOP the system when running at low temperature
+WarnUpperThreshold :  2 # in per cent, the upper limit of the humidity to WARN the system when running at low temperature
 Frequency          : 10 # one data point every ? seconds
 
 #  *** Run parameters for the Omega HH147U temperature logger meter. ***

@@ -62,7 +62,7 @@ class clsPseudoHumidity ( clsPseudoDevice ):
     logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self._strname )
 
     # random in 0. - 1., return in percentage
-    self._value = random.random() * 100
+    self._value = random.random() * 5
 
   def last(self) : 
     return self._value

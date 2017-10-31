@@ -206,7 +206,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: Shut down Chiller Pump ---------------------------------------------
-  def shutdownChillerPump (self,queue,intStatusCode,intStatusArray) :
+  def shutdownChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps) :
     """
       procedure to shutdown the Chiller and Pump:
       * set Chiller Temperature to the stop value
@@ -255,7 +255,8 @@ class clsChillerRun :
 
       # for non emergency shutdown, first cool down the chiller before shutting down the whole system 
       if intStatusCode.value < StatusCode.FATAL and 'cChangeSetpoint' in strcommand :
-        intTimeCool = 600 # in seconds 
+        intTimeCool = 600 # in seconds
+        fltCurrentTemps[0] = float(strChiStopTemp) 
         try : 
           intTimeCool = 60 * int( self._istRunCfg.get( 'Chiller', 'StopCoolTime' ) ) # parameter in minutes
         except :
@@ -271,7 +272,7 @@ class clsChillerRun :
         
 # ------------------------------------------------------------------------------
 # Function: run one loop of Chiller Pump ---------------------------------------
-  def runChillerPumpOneLoop(self,queue,intStatusCode,intStatusArray,fltProgress, name = "Chiller") :
+  def runChillerPumpOneLoop(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps, name = "Chiller") :
     """ 
       main routine of every loop running the Chiller and Boost Pump
       set the name parameter if not running the default "Chiller"
@@ -312,6 +313,7 @@ class clsChillerRun :
         # changing the Chiller Temperature to a corresponding value 
         self.sendcommand(self, 'cChangeSetpoint=' + strTemperatureList[itemp],intStatusCode )
         logging.info(self._strclassname +  ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
+        fltCurrentTemps[0] = float(strTemperatureList[itemp])
         logging.info(self._strclassname + ' Chiller waiting ' + strTimePeriodList[itemp] + ' minutes.')
         for i in range( 60 * int(strTimePeriodList[itemp])):
           if intStatusCode.value > StatusCode.OK: return
@@ -323,7 +325,7 @@ class clsChillerRun :
  
 # ------------------------------------------------------------------------------
 # Function: run Chiller Pump ---------------------------------------------------
-  def runChillerPump(self,queue,intStatusCode,intStatusArray,fltProgress,loggingLevel,runPseudo) :
+  def runChillerPump(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,loggingLevel,runPseudo) :
     """
       main routine to run Chiller Pump with user set loops
      """
@@ -337,20 +339,20 @@ class clsChillerRun :
     self.startChillerPump (self,queue,intStatusCode)
     self.funcPetDog(3,intStatusArray) 
     for strsectionname in [ name for name in self._istRunCfg.sections() if "Chiller" in name ]:
-      self.runChillerPumpOneLoop(self,queue, intStatusCode,intStatusArray,fltProgress, name = strsectionname)
+      self.runChillerPumpOneLoop(self,queue, intStatusCode,intStatusArray,fltProgress,fltCurrentTemps, name = strsectionname)
       self.funcPetDog(3,intStatusArray)
       # constantly check the status of the system 
       if intStatusCode.value > StatusCode.OK: 
         logging.warning("----------     Shutdown has been Triggered, Beginning Shutdown") 
-        self.shutdownChillerPump(self,queue,intStatusCode,intStatusArray)
+        self.shutdownChillerPump(self,queue,intStatusCode,intStatusArray,fltCurrentTemps)
         return
 
     logging.info(self._strclassname + " Chiller Loops Have Finished, Beginning Shutdown") 
-    self.shutdownChillerPump(self,queue,intStatusCode,intStatusArray)
+    self.shutdownChillerPump(self,queue,intStatusCode,intStatusArray,fltCurrentTemps)
     
 # ------------------------------------------------------------------------------
 # Function: record temperature -------------------------------------------------
-  def recordTemperature(self,queue,intStatusCode,intStatusArray,loggingLevel,runPseudo) :
+  def recordTemperature(self,queue,intStatusCode,intStatusArray,fltCurrentTemps,loggingLevel,runPseudo) :
     """
       recording temperatures of ambient, box, inlet, outlet from the thermocouples
     """
@@ -406,6 +408,9 @@ class clsChillerRun :
           logging.info( '<DATA> Thermocouple T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f} '.format( \
                         fltTempTup[0], fltTempTup[1], fltTempTup[2], fltTempTup[3]) )
 
+          for i in range(4): #Adds the current temperatures into the global temps
+            fltCurrentTemps[i+1]=fltTempTup[i]
+          
           # keep on track the liquid temperature read out
           # needed by humidity function 
           self._fltTempLiquid = fltTempTup[ intIdxTLiquid ]
@@ -424,7 +429,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: record humidity ----------------------------------------------------
-  def recordHumidity(self,queue,intStatusCode,intStatusArray,loggingLevel,runPseudo) :
+  def recordHumidity(self,queue,intStatusCode,intStatusArray,fltCurrentHumidity,fltCurrentTemps,loggingLevel,runPseudo) :
     """
       recording the humidity inside the box
     """
@@ -455,17 +460,18 @@ class clsChillerRun :
       self.sendcommand(self, 'hRead',intStatusCode )
       fltHumidity = istHumidity.last() 
       logging.info( '<DATA> Humidity {:4.1f}'.format( fltHumidity ) )
-      if self._fltTempLiquid < 0.:
+
+      fltCurrentHumidity.value = fltHumidity #Sets global humidity
+
+      if fltCurrentTemps[0] < 0.:
         if fltHumidity > fltStopUpperLimit : 
-          logging.error( self._strclassname + ' at liquid temperature '+ str( self._fltTempLiquid ) +
-                         ' box humidity ' + str( fltHumidity ) + '% > ' + str( fltStopUpperLimit ) + 
-                         '% upper limit! Return! ')
+          logging.error( self._strclassname + ' Chiller temperature set to '+ str( fltCurrentTemps[0] ) +
+                         ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltStopUpperLimit ) + 
+                         ' % upper limit!')
           intStatusCode.value = StatusCode.ERROR 
-          return
         elif fltHumidity > fltWarnUpperLimit : 
-          logging.warning( self._strclassname + ' at liquid temperature '+ str( self._fltTempLiquid ) +
-                           ' box humidity ' + str( fltHumidity ) + '% > ' + str( fltStopUpperLimit ) + '%')
-          #intStatusCode.value = StatusCode.ERROR  
+          logging.warning( self._strclassname + ' Chiller temperature set to '+ str( fltCurrentTemps[0] ) +
+                           ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltWarnUpperLimit ) + ' %') 
 
       time.sleep( intFrequency - 1 )
     logging.info( self._strclassname + ' Humidity finished recording. ' )
@@ -480,7 +486,7 @@ class clsChillerRun :
     this will put the spot into a number that can be a given error.
     '''
   def funcPetDog (intProcess,intStatusArray): #Puts the WatchDog into OK, which stops an error
-    intStatusArray[intProcess] = 1
+    intStatusArray[intProcess] = ProcessCode.OK
   def funcPokeDog (intProcess,intStatusArray,intStatus): # Gives the Watchdog an error sign, not currently in use
     intStatusArray[intProcess] = intStatus
 
@@ -546,7 +552,7 @@ class clsChillerRun :
             intCurrentState[i] = ProcessCode.DEAD
 
         #How to deal with a single timeout
-        if p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.OK: #Flags and Sends a timeout warning and sets the state to timed out
+        elif p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.OK: #Flags and Sends a timeout warning and sets the state to timed out
           logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!!')
           intCurrentState[i] = ProcessCode.SLEEP
           if i == 0:# If the listener times out, we should just put it into shutdown, because we will no longer be logging
@@ -555,7 +561,7 @@ class clsChillerRun :
             intCurrentState[i] = ProcessCode.DEAD
 
         #Resetting all petted processes
-        if p == ProcessCode.OK:
+        elif p == ProcessCode.OK:
           intCurrentState[i] = ProcessCode.OK
 
         #Resets all process statuses to SLEEP
