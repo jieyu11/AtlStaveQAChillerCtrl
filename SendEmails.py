@@ -3,10 +3,7 @@ Class clsSendEmail
   
   Description: 
     A Python script to send emails from a gmail account.
-    Important info on the account:
-
-    username: ISUChillerControl@gmail.com
-    password: ISUphysics2017
+    Important info on the account: 
   
   Author and contact: 
     W. Heidorn Iowa State Univiersity, USA wheidorn@iastate.edu
@@ -27,8 +24,8 @@ class clsSendEmails :
     """
       recipient must be of the form 'username@domain.com'
     """
-    gmailUser = 'XXXXXXXXXXXXXXXXXXX' #A valid gmail account
-    gmailPassword = 'XXXXXXXXXX'          #That account's password
+    gmailUser = 'ISUChillerControl@gmail.com' #A valid gmail account
+    gmailPassword = 'ISUphysics2017'          #That account's password
    
 
     msg = MIMEMultipart()
