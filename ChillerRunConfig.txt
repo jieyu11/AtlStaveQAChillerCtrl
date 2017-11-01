@@ -9,6 +9,9 @@
 #           d = variable value, ex: NLoops : 3 meaning running 3 loops
 #           c = comment about what command does.
 
+[Email]
+Users : wheidorn@gmail.com, wheidorn@iastate.edu
+
 #  *** Run parameters for the SP Scientific RC211B0 recirculating chiller. ***
 [Chiller] 
 NLoops : 2                  # number of loops to run

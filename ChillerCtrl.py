@@ -229,7 +229,7 @@ def main( ) :
 
   # The WatchDog process makes certain all other processes are currently running,
   #and in the event of problems shuts down the chiller, it also is used for messaging
-  mpList.append( mp.Process(target = clsChillerRun.funcWatchDog, name = 'WatchDog', \
+  mpList.append( mp.Process(target = clsChillerRun.procWatchDog, name = 'WatchDog', \
                             args =(clsChillerRun,queue,intStatusCode,intStatusArray,bolSendEmail,intLoggingLevel)) )
 
   

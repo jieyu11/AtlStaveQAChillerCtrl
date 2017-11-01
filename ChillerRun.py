@@ -17,23 +17,19 @@ Class clsChillerRun
 # ------------------------------------------------------------------------------
 # Import section ---------------------------------------------------------------
 
-import logging
-import logging.handlers
-import configparser
-import time
+import logging          # Needed for logging to occur
+import logging.handlers # Needed for multiprocess logging with a file handler
+import time             
 import sys
-from ChillerRdDevices import *
-from ChillerRdConfig  import *
-from ChillerRdCmd     import *
-from SendEmails       import *
-
-
-# https://docs.python.org/3.6/library/multiprocessing.html
-from multiprocessing import Process, Value, Array
-import multiprocessing as mp
-
 from enum import IntEnum
 from functools import total_ordering
+
+# User Macros
+from ChillerRdDevices import * #Allows reading from devices
+from ChillerRdConfig  import * #Configures devices
+from ChillerRdCmd     import * #Configures commands
+from SendEmails       import * #Configures email sender
+
 @total_ordering
 
 # ------------------------------------------------------------------------------
@@ -48,10 +44,10 @@ class StatusCode (IntEnum) :
   ERROR   = 1  # -> Puts the system into a normal shutdown
   FATAL   = 2  # -> Turns off the Chiller and Pump right away
   DONE    = 3  # -> Says that both the Chiller and Pump are both off, Kill all the processes
-  def __lt__(self, other):
-    if self.__class__ is other.__class__:
-      return self.value < other.value
-    return NotImplemented
+#  def __lt__(self, other):
+#    if self.__class__ is other.__class__:
+#      return self.value < other.value
+#    return NotImplemented
 # ------------------------------------------------------------------------------
 # Class ProcessCode -------------------------------------------------------------
 
@@ -91,29 +87,29 @@ class clsChillerRun :
   """
 # ------------------------------------------------------------------------------
 # Function: Initialization -----------------------------------------------------
-  def init(self, strdevnamelist, runPseudo) :
+  def funcInitialize(self, strDevNameList, bolRunPseudo) :
     '''
-    This is initialized at the start of each running process. In each process the
-    devices are stated in the initialization and their configuration occurs. If 
+    This is funcInitializeialized at the start of each running process. In each process the
+    devices are stated in the funcInitializeialization and their configuration occurs. If 
     this is not done in the local process or done in a separate process the
     devices will not communicate!!!
     '''
     self._strclassname = '< RUNNING >' 
     
     # configuration of how the devices are connected to the PC
-    self._istConnCfg = clsConfig( 'ChillerConnectConfig.txt', strdevnamelist)
+    self._istConnCfg = clsConfig( 'ChillerConnectConfig.txt', strDevNameList)
 
 
     # pass the configuration of how the devices connection
     # to the device handler 
-    self._istDevHdl = clsDevicesHandler( self._istConnCfg, strdevnamelist,runPseudo )
+    self._istDevHdl = clsDevicesHandler( self._istConnCfg, strDevNameList,bolRunPseudo )
 
     # interpretation of machine readable commands into human readable commands
     # and vice versa
-    self._istCommand = clsCommands( 'ChillerEquipmentCommands.txt', strdevnamelist)
+    self._istCommand = clsCommands( 'ChillerEquipmentCommands.txt', strDevNameList)
 
     # configuration of the running routine 
-    self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', strdevnamelist )
+    self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', strDevNameList )
 
     # last temperature value for liquid from thermocouple, needed for humidity sensor 
     # if liquid temperature is lower than 0., humidity cannot be too high.
@@ -121,39 +117,40 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: sendcommand --------------------------------------------------------
-  def sendcommand(self, strusercommand,intStatusCode) :
+  def sendcommand(self, strUserCommand,intStatusCode) :
     """
       function to send command to any of the devices
     """
     try:
-      logging.debug(' Start to send user command ' + strusercommand )
-      strdevname, strcmdname, strcmdpara = self._istCommand.getdevicecommand( strusercommand )
+      logging.debug(' Start to send user command ' + strUserCommand )
+      strdevname, strcmdname, strcmdpara = self._istCommand.getdevicecommand( strUserCommand )
       logging.debug('sending command %s %s %s' % (strdevname, strcmdname, strcmdpara) )
       self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara)
     except:
       #if intStatusCode.value < StatusCode.ERROR:  
       #  intStatusCode.value = StatusCode.ERROR
-      raise ValueError('Could not find user command: %s in %s' % (strusercommand, self._istCommand.cfgname() ))
+      raise ValueError('Could not find user command: %s in %s' % (strUserCommand, self._istCommand.cfgname() ))
 # -----------------------------------------------------------------------------
 # Listener Process ------------------------------------------------------------
-  def procListener (self, queue, intStatusArray,logName) :
+  def procListener (self, queue, intStatusArray,strLogName) :
     """
-      Process that reads the queue and then puts thing to a file
+      Process that reads the queue and then puts whatever read to the log file
+      with a name strLogName.
     """
     root = logging.getLogger()# Defines the logger
-    h = logging.handlers.RotatingFileHandler(logName,'a',1000000,10) # Creates a rotating file handler to control how the queue works
+    h = logging.handlers.RotatingFileHandler(strLogName,'a',1000000,10) # Creates a rotating file handler to control how the queue works
     f = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')# Creates format of all logged material
     h.setFormatter(f)# Sets format of the handler
     root.addHandler(h) #Adds the handler to the logger
     while True:
-      self.funcPetDog(0,intStatusArray)
+      self.funcResetDog(0,intStatusArray)
       try:
         # This sets conditions to quit the procListener process when the listener recieves None in the queue.
         record = queue.get()
         if record is None:
           break
         logger = logging.getLogger(record.name) #This finds the name of the log in the queue
-        logger.handle(record) # Handles the log, printing it to the logName File
+        logger.handle(record) # Handles the log, printing it to the strLogName File
         print(record.asctime + " "+ record.levelname+" "+record.message) # Prints the log to the screen
       except Exception:
         import sys, traceback
@@ -162,14 +159,14 @@ class clsChillerRun :
 
 # -----------------------------------------------------------------------------
 # Function: process_configure -------------------------------------------------
-  def p_config(queue,loggingLevel) :
+  def funcLoggingConfig(queue,intLoggingLevel) :
     """
        function that must be present in any process that uses the logger
     """
     h = logging.handlers.QueueHandler(queue) #Connects the handler to the main queue
     root = logging.getLogger() #Creates a new logging process root
     root.addHandler(h) # Connects the logging process to the handler
-    root.setLevel(loggingLevel) # This sets what level is logged in each process
+    root.setLevel(intLoggingLevel) # This sets what level is logged in each process
 
 # ------------------------------------------------------------------------------
 # Function: Start Chiller Pump -------------------------------------------------
@@ -223,17 +220,14 @@ class clsChillerRun :
       2) Major Emergency (status = FATAL) does not allow for cooldown
       3) End of run (status = DONE) signals to all processes that the program is done
     """
-     
-    strPumpStopRPM = '10'
-    strChiStopTemp = '20'
+    #
+    strPumpStopRPM = '10' #RPM
+    strChiStopTemp = '20' #Degree C
     try:
       strPumpStopRPM = self._istRunCfg.get( 'Pump', 'StopRPM' )
       strChiStopTemp = self._istRunCfg.get( 'Chiller', 'StopTemperature' )
     except:
-      #if intStatusCode.value < StatusCode.WARNING: 
-      #  intStatusCode.value = StatusCode.WARNING
-      raise KeyError("Sections: Pump, Chiller, Key: StopRPM, StopTemperature not present in configure: %s" % \
-                     self._istRunCfg.name() )
+      logging.warning("Sections: Pump, Chiller, Key: Stop RPM, StopTemperature not present in configure: "+self._istRunCfg.name()+" Using Default values(10RPM, 20C)") 
 
     #
     # Dictionary to keep the shutdown procedure
@@ -267,12 +261,12 @@ class clsChillerRun :
           # check second by second the status of the system
           if intStatusCode.value > StatusCode.ERROR: break 
           time.sleep( 1 ) # in seconds
-          self.funcPetDog(3,intStatusArray)
+          self.funcResetDog(3,intStatusArray)
     intStatusCode.value = StatusCode.DONE  
         
 # ------------------------------------------------------------------------------
 # Function: run one loop of Chiller Pump ---------------------------------------
-  def runChillerPumpOneLoop(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps, name = "Chiller") :
+  def runChillerPumpLoops(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps, name = "Chiller") :
     """ 
       main routine of every loop running the Chiller and Boost Pump
       set the name parameter if not running the default "Chiller"
@@ -282,7 +276,7 @@ class clsChillerRun :
     try:
       intChiNLoops  = int( self._istRunCfg.get( name, 'NLoops' ) )
     except:
-      raise KeyError("Sections: "+ name + ", Key: NLoops not present in configure: %s" % \
+      logging.error("Sections: "+ name + ", Key: NLoops not present in configure: %s" % \
                      self._istRunCfg.name() )
     logging.info("---------- Section: "+ name + ", number of loops " + str(intChiNLoops) )    
 
@@ -318,29 +312,28 @@ class clsChillerRun :
         for i in range( 60 * int(strTimePeriodList[itemp])):
           if intStatusCode.value > StatusCode.OK: return
           time.sleep(1)
-          self.funcPetDog(3,intStatusArray)
+          self.funcResetDog(3,intStatusArray)
 
         fltProgress.value += fltProgressStep
     logging.info('----------     Chiller, Pump looping finished!' )
  
 # ------------------------------------------------------------------------------
 # Function: run Chiller Pump ---------------------------------------------------
-  def runChillerPump(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,loggingLevel,runPseudo) :
+  def runChillerPump(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,intLoggingLevel,bolRunPseudo) :
     """
       main routine to run Chiller Pump with user set loops
      """
-   
-    # Configures the processes handler so that it will log
-    self.p_config(queue,loggingLevel)
-    # Configures the connected devices and their corresponding ports
-    self.init(self,["Chiller","Pump"], runPseudo)
 
-    self.funcPetDog(3,intStatusArray) 
+    # Configures the processes handler so that it will log
+    self.funcLoggingConfig(queue,intLoggingLevel)
+    # Configures the connected devices and their corresponding ports
+    self.funcInitialize(self,["Chiller","Pump"], bolRunPseudo)
+    time.sleep(10)
+
     self.startChillerPump (self,queue,intStatusCode)
-    self.funcPetDog(3,intStatusArray) 
+
     for strsectionname in [ name for name in self._istRunCfg.sections() if "Chiller" in name ]:
-      self.runChillerPumpOneLoop(self,queue, intStatusCode,intStatusArray,fltProgress,fltCurrentTemps, name = strsectionname)
-      self.funcPetDog(3,intStatusArray)
+      self.runChillerPumpLoops(self,queue, intStatusCode,intStatusArray,fltProgress,fltCurrentTemps, name = strsectionname) 
       # constantly check the status of the system 
       if intStatusCode.value > StatusCode.OK: 
         logging.warning("----------     Shutdown has been Triggered, Beginning Shutdown") 
@@ -352,15 +345,17 @@ class clsChillerRun :
     
 # ------------------------------------------------------------------------------
 # Function: record temperature -------------------------------------------------
-  def recordTemperature(self,queue,intStatusCode,intStatusArray,fltCurrentTemps,loggingLevel,runPseudo) :
+  def recordTemperature(self,queue,intStatusCode,intStatusArray,fltCurrentTemps,intLoggingLevel,bolRunPseudo) :
     """
       recording temperatures of ambient, box, inlet, outlet from the thermocouples
     """
 
-    self.p_config(queue,loggingLevel)
+    self.funcLoggingConfig(queue,intLoggingLevel)
 
-    self.init(self,["Thermocouple"], runPseudo)
+    self.funcInitialize(self,["Thermocouple"], bolRunPseudo)
+    time.sleep(20)
 
+    # Default values
     fltTUpperLimit =  60 # upper limit in C for liquid temperature
     fltTLowerLimit = -55 # lower limit in C for liquid temperature
     intFrequency   =  10 # one data point per ? seconds
@@ -386,8 +381,8 @@ class clsChillerRun :
         logging.error( self._strclassname + ' IdxLiquidTemperature '+ intIdxTLiquid + ' not in [0, 3]. Check! ')
         return
     except:
-      raise KeyError( ' Section: Thermocouple, Key: LiquidUpperThreshold, LiquidLowerThreshold, Frequency not found in %s ' % \
-                      self._istRunCfg.cfgname() )
+      logging.warning( ' Section: Thermocouple, Key: LiquidUpperThreshold, LiquidLowerThreshold, Frequency not found! Using defaults!')
+      
     
     istThermocouple = self._istDevHdl.getdevice( 'Thermocouple' )
     if istThermocouple is None:
@@ -397,7 +392,7 @@ class clsChillerRun :
     # keep reading data until the process is killed or 
     # kill the process if the global status is more serious than an ERROR
     while ( intStatusCode.value < StatusCode.DONE) : 
-      self.funcPetDog(1,intStatusArray)
+      self.funcResetDog(1,intStatusArray)
       # read thermocouple data, every read takes ~25 seconds for 29 data points
       self.sendcommand(self,'tRead',intStatusCode )
 
@@ -429,13 +424,15 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: record humidity ----------------------------------------------------
-  def recordHumidity(self,queue,intStatusCode,intStatusArray,fltCurrentHumidity,fltCurrentTemps,loggingLevel,runPseudo) :
+  def recordHumidity(self,queue,intStatusCode,intStatusArray,fltCurrentHumidity,fltCurrentTemps,intLoggingLevel,bolRunPseudo) :
     """
       recording the humidity inside the box
     """
-    self.p_config(queue,loggingLevel) 
-    self.init(self,["Humidity"], runPseudo)
-    time.sleep(1)
+    self.funcLoggingConfig(queue,intLoggingLevel) 
+    self.funcInitialize(self,["Humidity"], bolRunPseudo)
+    time.sleep(20)
+
+    #Default values
     fltStopUpperLimit = 5.0 # upper limit in % for humidity to stop the system
     fltWarnUpperLimit = 2.0 # upper limit in % for humidity to warn the system
     intFrequency      =  10 # one data point per ? seconds
@@ -448,7 +445,7 @@ class clsChillerRun :
         logging.warning( self._strclassname + ' Humidity reading frequency ' + str( intFrequency ) + '! set to 1.')
         intFrequency = 1
     except:
-      pass
+      logging.warning("Section: Humidity, Key: StopUpperThreshold, WarnUpperThreshold, or Frequency, not found! Using defaults!")
 
     istHumidity = self._istDevHdl.getdevice( 'Humidity' )
     if istHumidity is None:
@@ -456,7 +453,7 @@ class clsChillerRun :
       return
   
     while(intStatusCode.value < StatusCode.DONE ) :
-      self.funcPetDog(2,intStatusArray)
+      self.funcResetDog(2,intStatusArray)
       self.sendcommand(self, 'hRead',intStatusCode )
       fltHumidity = istHumidity.last() 
       logging.info( '<DATA> Humidity {:4.1f}'.format( fltHumidity ) )
@@ -478,19 +475,20 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: Watchdog -----------------------------------------------------------
+  def funcResetDog (intProcess,intStatusArray): #Puts the WatchDog into OK, which stops an error
     '''
-    These functions are a part of the WatchDog system. Each process has an assigned
-    spot in the array. Every 30 seconds the array is checked by the watchdog.
-    The watchdog then sets all processes spots to 0. In each process loop there is
-    funcPetDog that sets the spot to 1 which is the OK sign. There is also WackDog
-    this will put the spot into a number that can be a given error.
+    Each process has an assigned spot in the intStatusArray. Every 30 seconds 
+    the array is checked by the watchdog. The watchdog then sets all processes 
+    spots to ProcessCode.SLEEP. In each process loop there is funcResetDog that
+    sets the spot to ProcessCode.OK. 
     '''
-  def funcPetDog (intProcess,intStatusArray): #Puts the WatchDog into OK, which stops an error
     intStatusArray[intProcess] = ProcessCode.OK
-  def funcPokeDog (intProcess,intStatusArray,intStatus): # Gives the Watchdog an error sign, not currently in use
-    intStatusArray[intProcess] = intStatus
 
-  def funcWatchDog (self,queue, intStatusCode, intStatusArray,bolSendEmail,loggingLevel):
+  def funcError1Dog (intProcess,intStatusArray): # Gives the Watchdog an error sign, not currently in use
+    
+    intStatusArray[intProcess] = ProcessCode.ERROR1
+
+  def procWatchDog (self,queue, intStatusCode, intStatusArray,bolSendEmail,intLoggingLevel):
     '''
       The Watchdog is the system protection protocol. It has 2 purposes,
       1. to keep track of errors
@@ -518,15 +516,26 @@ class clsChillerRun :
         the system will be waiting for personal intervention.  
     '''
     strWatchDog = '< WATCHDOG >'
-    self.p_config(queue,loggingLevel)
+    self.funcLoggingConfig(queue,intLoggingLevel)
+    
+    #default mailList
+    mailList = ['wheidorn@iastate.edu']# This is the list of email addresses the program will send emails too
+    self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', [])
+    try: 
+      mailList = [ x.strip(' ') for x in self._istRunCfg.get( 'Email', 'Users' ).split(',') ]
+    except:
+      logging.warning('Unable to find email list in Config File, Using Default: wheidorn@iastate.edu')
+    
+    if bolSendEmail == True:
+      logging.info(strWatchDog  +' Will notify: '+str(mailList))
+    else:
+      logging.info(strWatchDog +' Will notify: Local User')
 
-    mailList = ['wheidorn@iastate.edu','wheidorn@gmail.com']# This is the list of email addresses the program will send emails too
-    SE = clsSendEmails()
     def mail(strTitle,strMessage):#This sends an email out if bolSendEmail == true
       if bolSendEmail == True:  
         print('Sending Message: '+strTitle+': '+strMessage)
         for p in mailList: 
-          SE.funcSendMail(p,strTitle,strMessage)
+          clsSendEmails.funcSendMail(p,strTitle,strMessage)
           logging.info(strWatchDog+' Email sent to '+ p) 
           time.sleep(1)
 
@@ -539,14 +548,14 @@ class clsChillerRun :
       i = 0
       for p in intStatusArray:
 
-        #How to deal with a second Timeout          
+        #How to deal with a second timeout 
         if p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.SLEEP:
-          logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' is still Timed Out!!!!')
+          logging.error(strWatchDog+' PROCESS: '+ strProcesses[i]+' is still Timed Out!!!!')
           if i == 0 or i == 1 or i == 2:# If it is the logger, or one of the two recorders start shutdown
             intStatusCode.value = StatusCode.ERROR
             intCurrentState[i] = ProcessCode.DEAD
           else:# If it is the chiller loop alert the authorities, but do not shutdown
-            logging.warning(strWatchDog+' PROCESS: '+strProcesses[i]+' Killing System! ALERT THE AUTHORITIES!!!')  
+            logging.error(strWatchDog+' PROCESS: '+strProcesses[i]+' Killing System! ALERT THE AUTHORITIES!!!')  
             mail('Major Error!!!!!!!!','The watchdog lost track of the Chiller and Pump control!!!!')
             sentMessage = True
             intCurrentState[i] = ProcessCode.DEAD
