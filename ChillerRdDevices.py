@@ -9,14 +9,14 @@ device class to read from / write to USB connected devices:
 # function __init__: 
 #   initialize the class device
 #   should include Configure Instance as input???
-# function read( strcmdname ):
+# function read( strCmdName ):
 #   provide the command name
 #   return information from the device
-# function write( strcmdname ):
+# function write( strCmdName ):
 #   provide the command name
 #   write to device if necessary
 #   e.g. change Chiller setup temperature
-# function getdevice( strdevname ):
+# function getdevice( strDevName ):
 #   provide device name
 #   return the device instance
 #
@@ -27,7 +27,7 @@ from ChillerDevices import *       #real devices classes: Chiller Pump Humidity 
 from ChillerPseudoDevices import * #pseudo devices classes
 
 class clsDevicesHandler:
-  def __init__(self, istConfig, strdevnamelist, runPseudo):
+  def __init__(self, istConfig, strDevNameList, bolRunPseudo):
     """
       function initialization of devices handler
       read in configuration
@@ -38,59 +38,60 @@ class clsDevicesHandler:
 
     # use a dictionary to keep the instances of devices
     self.__dictDevices = {}
-    for strdevname in istConfig.sections() : 
+    for strDevName in istConfig.sections() : 
       # a device should have a connected port (lower case!)
       # otherwise skip the section, not device
 
-      if strdevnamelist is not None  and  strdevname not in strdevnamelist: 
-        logging.debug('Devices Handler: ' + strdevname + ' skipped. ')
+      if strDevNameList is not None  and  strDevName not in strDevNameList: 
+        logging.debug('Devices Handler: ' + strDevName + ' skipped. ')
         continue;
 
-      if 'port' not in istConfig.keys( strdevname ) :
+      if 'port' not in istConfig.keys( strDevName ) :
         continue
 
-      #print ('Device name: ' + strdevname )
-      strPort = istConfig.get(strdevname, 'Port')
-      intBaud = int( istConfig.get(strdevname, 'Baud'))
-      if strdevname == 'Chiller':
-        if runPseudo: 
-          self.__dictDevices[ strdevname ] = clsPseudoChiller(strdevname)
+      #print ('Device name: ' + strDevName )
+      strPort = istConfig.get(strDevName, 'Port')
+      intBaud = int( istConfig.get(strDevName, 'Baud'))
+      if strDevName == 'Chiller':
+        if bolRunPseudo == True: 
+          self.__dictDevices[ strDevName ] = clsPseudoChiller(strDevName)
         else:
-          self.__dictDevices[ strdevname ] = clsChiller(strdevname, strPort, intBaud)
-      elif strdevname == 'Pump':
-        if runPseudo: 
-          self.__dictDevices[ strdevname ] = clsPseudoPump(strdevname)
+          self.__dictDevices[ strDevName ] = clsChiller(strDevName, strPort, intBaud)
+      elif strDevName == 'Pump':
+        if bolRunPseudo == True: 
+          self.__dictDevices[ strDevName ] = clsPseudoPump(strDevName)
         else:
-          self.__dictDevices[ strdevname ] = clsPump(strdevname, strPort, intBaud)
-      elif strdevname == 'Humidity':
-        if runPseudo: 
-          self.__dictDevices[ strdevname ] = clsPseudoHumidity(strdevname)
+          #!! self.__dictDevices[ strDevName ] = clsPump(strDevName, strPort, intBaud)
+          self.__dictDevices[ strDevName ] = clsPseudoPump(strDevName)
+      elif strDevName == 'Humidity':
+        if bolRunPseudo == True: 
+          self.__dictDevices[ strDevName ] = clsPseudoHumidity(strDevName)
         else:
-          self.__dictDevices[ strdevname ] = clsHumidity(strdevname, strPort, intBaud)
-      elif strdevname == 'Thermocouple':
-        if runPseudo: 
-          self.__dictDevices[ strdevname ] = clsPseudoThermocouple(strdevname)
+          self.__dictDevices[ strDevName ] = clsHumidity(strDevName, strPort, intBaud)
+      elif strDevName == 'Thermocouple':
+        if bolRunPseudo == True: 
+          self.__dictDevices[ strDevName ] = clsPseudoThermocouple(strDevName)
         else:
-          self.__dictDevices[ strdevname ] = clsThermocouple(strdevname, strPort, intBaud)
+          self.__dictDevices[ strDevName ] = clsThermocouple(strDevName, strPort, intBaud)
       else:
-        logging.error( ' Device name: ' + strdevname + ' not found! ')
+        logging.error( ' Device name: ' + strDevName + ' not found! ')
 
-  def readdevice(self, strdevname, strcmdname, strcmdpara) :
+  def readdevice(self, strDevName, strCmdName, strCmdPara,fltCurrentTemps) :
     """
       function to read from one of the devices through device name
       and command name
     """
-    self.__dictDevices[ strdevname ].read( strcmdname, strcmdpara)
+    self.__dictDevices[ strDevName ].read( strCmdName, strCmdPara,fltCurrentTemps)
 
-  def getdevice(self, strdevname) :
+  def getdevice(self, strDevName) :
     """
       function to get the instance of the device by providing
       device's name
     """
-    if strdevname in self.__dictDevices :
-      return self.__dictDevices[ strdevname ]
+    if strDevName in self.__dictDevices :
+      return self.__dictDevices[ strDevName ]
     else :
-      logging.error( 'Device name ' + strdevname + ' not found. ' );
+      logging.error( 'Device name ' + strDevName + ' not found. ' );
       logging.error( '    The possible devices names are: ' );
       for key in self.__dictDevices : 
         logging.error( '     ' + key );

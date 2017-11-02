@@ -25,7 +25,7 @@ class clsPseudoDevice:
 
     self._strclassname = ' < Device > '
 
-  def read(self, strcmdname, strcmdpara=""):
+  def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       function of reading device data
     """
@@ -55,7 +55,7 @@ class clsPseudoHumidity ( clsPseudoDevice ):
     # keep the last read out value, initialized with 100%
     self._value = 100
 
-  def read(self, strcmdname, strcmdpara=""):
+  def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       Humidity: function of reading data
     """
@@ -86,20 +86,50 @@ class clsPseudoThermocouple ( clsPseudoDevice ):
     # initialized with 0. refer as [i][j]
     self._temperaturedata =  [[0 for x in range( self._intDataPoint )] for y in range( self._intDataLines )]
 
-
-  def read(self, strcmdname, strcmdpara=""):
+  def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       Thermocouple: function of reading data
     """
     # to mimic the real case, reading the thermocouple data takes around 25 seconds
     time.sleep( 25 )
+
+    #Starting Temperature Conditions
+    TinOld = fltCurrentTemps[1]
+    ToutOld = fltCurrentTemps[2]
+    TboxOld = fltCurrentTemps[3]
+    TroomOld = fltCurrentTemps[4]
+    fltOldSetValue = fltCurrentTemps[0]
+
+    #Create a new second of temp data
     for Lidx in range( self._intDataLines ) :
-      for Tidx in range( self._intDataPoint ) :
-        # temperature in -45 +55.
-        self._temperaturedata[ Lidx ][ Tidx ] = random.random() * 100 - 45.
 
+      TempPercentChange = 0.05 * random.random() # How much the fluid temperature going to the stave changes each second
+      OffsetPercent = 0.05                       # Offset percentage that the outflowing fluid is
 
-  def last(self, lineIdx = 0) :
+      # A statement to see if we are cooling or heating the stave
+      if fltCurrentTemps[0] > fltOldSetValue:
+        Offset = OffsetPercent
+      else:
+        Offset = -OffsetPercent
+        
+      # Generating the individual data from Old data
+      Tin   = TinOld *( 1- TempPercentChange)+ fltCurrentTemps[0]*TempPercentChange  
+      Tout  = TinOld + (Offset * TinOld)
+      Troom = TroomOld + 0.001 * random.random()
+      Tbox  = TboxOld + (((Tin+Tout)/2)-TboxOld)*0.001*random.random()
+      # Saving the data to _temperaturedata
+      self._temperaturedata[ Lidx ][0] = Tin
+      self._temperaturedata[ Lidx ][1] = Tout
+      self._temperaturedata[ Lidx ][2] = Tbox
+      self._temperaturedata[ Lidx ][3] = Troom  
+      # Saving the data to Olddata
+      TinOld = Tin
+      ToutOld = Tout
+      TboxOld = Tbox
+      TroomOld = Troom
+      fltOldSetValue = fltCurrentTemps[0]
+
+  def last(self, lineIdx = 28) :
     """
       function to read the last obtained result
       there are total of 29 readouts, define for which one to read
@@ -127,7 +157,7 @@ class clsPseudoChiller ( clsPseudoDevice ):
     self._value = 0
 
 
-  def read(self, strcmdname, strcmdpara=""):
+  def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       Chiller: function of reading data
     """
@@ -146,7 +176,7 @@ class clsPseudoPump ( clsPseudoDevice ):
     self._value = 0
 
 
-  def read(self, strcmdname, strcmdpara=""):
+  def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       Pump: function of reading data
     """

@@ -9,8 +9,9 @@
 #           d = variable value, ex: NLoops : 3 meaning running 3 loops
 #           c = comment about what command does.
 
+#  *** Email parameters set for sending messages to users during operation ***
 [Email]
-Users : wheidorn@gmail.com, wheidorn@iastate.edu
+Users : wheidorn@gmail.com, wheidorn@iastate.edu #Email addresses that will have messages sent to 
 
 #  *** Run parameters for the SP Scientific RC211B0 recirculating chiller. ***
 [Chiller] 
@@ -58,6 +59,6 @@ Frequency          : 10 # one data point every ? seconds
 IdxLiquidTemperature :   2 # index representing the Liquid Temperature, possible thermocouple of [0, 3]
 LiquidUpperThreshold :  60 # in degree C, the liquid will evaporate at around 70 C, so should keep under that value.
 LiquidLowerThreshold : -55 # in degree C, to keep the whole system safe, don't allow the temperature to go too low.
-Frequency            :  10 # one data point every ? seconds. Number in range [1, 29] for the current device
+Frequency            :  29 # one data point every ? seconds. Number in range [1, 29] for the current device
 DataPerRead          :  29 # number of data points every time user read the device, this number is none changeable
                            # it is defined by the thermocouple device. Only for reference
