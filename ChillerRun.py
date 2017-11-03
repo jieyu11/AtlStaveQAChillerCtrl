@@ -286,7 +286,7 @@ class clsChillerRun :
         except :
           pass
         
-        self.chillerWait(self,intTimeCool,intStatusCode,intStatusArray,fltCurrentTemps)
+        self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps)
         logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
         for i in range( intTimeCool ):
           # check second by second the status of the system
