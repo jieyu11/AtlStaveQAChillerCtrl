@@ -209,20 +209,22 @@ class clsChillerRun :
       more than 5 minutes it allows the system to continue.
     '''
     intWaitTime = intTime # min
-    fltWaitPercent = 0.05 # %
+    #fltWaitPercent = 0.05 # % Should be dependant on set Temp
     fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
     fltSetTemp   = fltCurrentTemps[0]
-    fltSetTempUp = fltSetTemp + fltWaitPercent*fltSetTemp 
-    fltSetTempDwn = fltSetTemp - fltWaitPercent*fltSetTemp 
+    fltWaitPercent = (2.4332 -0.118982*fltSetTemp+0.00184751*fltSetTemp*fltSetTemp)/fltSetTemp
+    fltSetTempUp = fltSetTemp + abs(fltWaitPercent*fltSetTemp) 
+    fltSetTempDwn = fltSetTemp - abs(fltWaitPercent*fltSetTemp) 
     while fltStaveTemp > fltSetTempUp or fltStaveTemp < fltSetTempDwn:
-      logging.info("<Running> Chiller waiting for "+str(intWaitTime)+" min to get to set Temperature ("+str(fltSetTempUp)+","+str(fltSetTempDwn)+")")
+      logging.info( "< RUNNING > Chiller waiting for "+str(intWaitTime)+ " min to get to set Temperature ("  \
+                    +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") Current Temp="+str(round(fltStaveTemp,2)))
       for i in range( 60 * intWaitTime):
         if intStatusCode.value > StatusCode.OK: return
         time.sleep(1)
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
  
-    logging.info("< RUNNING > Chiller reached set Temperature within "+str(fltWaitPercent*100)+ " %")
+    logging.info("< RUNNING > Chiller reached set Temperature within "+str(abs(fltWaitPercent*100))+ " %")
 
 
 
@@ -272,6 +274,8 @@ class clsChillerRun :
 
       # write information into logging file
       logging.info( strlog ) 
+      if 'cChangeSetpoint' in strcommand:
+        fltCurrentTemps[0] = float(strChiStopTemp)
 
       # for non emergency shutdown, first cool down the chiller before shutting down the whole system 
       if intStatusCode.value < StatusCode.FATAL and 'cChangeSetpoint' in strcommand :
@@ -282,7 +286,7 @@ class clsChillerRun :
         except :
           pass
         
-        chillerWait(self,intTimeCool,intStatusCode,intStatusArray,fltCurrentTemps)
+        self.chillerWait(self,intTimeCool,intStatusCode,intStatusArray,fltCurrentTemps)
         logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
         for i in range( intTimeCool ):
           # check second by second the status of the system
@@ -561,7 +565,7 @@ class clsChillerRun :
       if bolSendEmail == True:  
         print('Sending Message: '+strTitle+': '+strMessage)
         for p in mailList: 
-          clsSendEmails.funcSendMail(p,strTitle,strMessage)
+          clsSendEmails.funcSendMail(clsSendEmails,p,strTitle,strMessage)
           logging.info(strWatchDog+' Email sent to '+ p) 
           time.sleep(1)
 

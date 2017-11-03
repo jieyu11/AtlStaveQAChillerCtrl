@@ -11,7 +11,7 @@
 
 #  *** Email parameters set for sending messages to users during operation ***
 [Email]
-Users : wheidorn@gmail.com, wheidorn@iastate.edu #Email addresses that will have messages sent to 
+Users : wheidorn@gmail.com,wheidorn@iastate.edu 
 
 #  *** Run parameters for the SP Scientific RC211B0 recirculating chiller. ***
 [Chiller] 

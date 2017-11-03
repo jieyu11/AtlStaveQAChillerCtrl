@@ -51,22 +51,22 @@ strStartTime = str(time.strftime( '%m/%d/%Y %I:%M:%S %p',time.localtime()))
 strStartTimeVal = time.time()
 # -----------------------------------------------------------------------------
 # Logging ---------------------------------------------------------------------
-
+#
 # Generate name of log File
-strLogName = str(time.strftime( '%Y-%m-%d_%I-%M%p_',time.localtime()))+'ChillerRun.log'
-# Setup log file
-logging.basicConfig(filename=strLogName,
-                    level=intLoggingLevel, \
-                    format='%(asctime)s %(levelname)s: %(message)s', \
-                    datefmt='%m/%d/%Y %I:%M:%S %p')
-
+#strLogName = str(time.strftime( '%Y-%m-%d_%I-%M%p_',time.localtime()))+'ChillerRun.log'
+#
+#logging.basicConfig(filename=strLogName,
+#                    level=intLoggingLevel, \
+#                    format='%(asctime)s %(levelname)s: %(message)s', \
+#                    datefmt='%m/%d/%Y %I:%M:%S %p')
+#
 # Prints first header to the log file
-logging.info('Python version: ' + strPyVersion )
-logging.info('Chiller Control Code version: ' + strCodeVersion)
+#logging.info('Python version: ' + strPyVersion )
+#logging.info('Chiller Control Code version: ' + strCodeVersion)
 
 # ------------------------------------------------------------------------------
 # System Loading ---------------------------------------------------------------
-def intro():
+def intro(strLogName):
   '''
     This is a short intro that the system will show upon startup
   '''
@@ -183,7 +183,20 @@ def main( ) :
   """
     Run main routine
   """
-  intro()
+  
+  # Generate name of log File
+  strLogName = str(time.strftime( '%Y-%m-%d_%I-%M%p_',time.localtime()))+'ChillerRun.log'
+
+  logging.basicConfig(filename=strLogName,
+                    level=intLoggingLevel, \
+                    format='%(asctime)s %(levelname)s: %(message)s', \
+                    datefmt='%m/%d/%Y %I:%M:%S %p')
+
+  # Prints first header to the log file
+  logging.info('Python version: ' + strPyVersion )
+  logging.info('Chiller Control Code version: ' + strCodeVersion)
+
+  intro(strLogName)
 
   #First must run a short routine that allows the user to determine if it will run with PseudoData
   val = input("**********     USER:Do you wish to run with pseudo data? (y/n)\n")
