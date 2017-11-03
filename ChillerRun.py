@@ -208,27 +208,42 @@ class clsChillerRun :
       Checks the temperature at the stave core. If it has held its value for 
       more than 5 minutes it allows the system to continue.
     '''
-    intWaitTime = intTime # min
-    #fltWaitPercent = 0.05 # % Should be dependant on set Temp
-    fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
-    fltSetTemp   = fltCurrentTemps[0]
+    intWaitTime = intTime # temperature change wait time in minutes
+    intEquiTime = 1       # temperature equillibrium wait time in minutes
+
+    fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2  #Get the current average stave temp from inlet and outlet
+    fltSetTemp   = fltCurrentTemps[0]                         #Get the set Temperature
+
+    #Calculate what percent of the actual temp will be based upon the set temp
+    #Effectively it is around 30% at -55 and around 1-2% at 20 and 50
     fltWaitPercent = (2.4332 -0.118982*fltSetTemp+0.00184751*fltSetTemp*fltSetTemp)/fltSetTemp
+    #Calculate Boundaries of the set temp
     fltSetTempUp = fltSetTemp + abs(fltWaitPercent*fltSetTemp) 
     fltSetTempDwn = fltSetTemp - abs(fltWaitPercent*fltSetTemp) 
+
+    #When our temp has falled within the boundaries this loop ends
     while fltStaveTemp > fltSetTempUp or fltStaveTemp < fltSetTempDwn:
-      logging.info( "< RUNNING > Chiller waiting for "+str(intWaitTime)+ " min to get to set Temperature ("  \
-                    +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") Current Temp="+str(round(fltStaveTemp,2)))
+      logging.info( "< RUNNING > Chiller waiting for "+str(intWaitTime)+ " min to get to set Temp. Range("  \
+                    +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") Current Temp. = "+str(round(fltStaveTemp,2)))
       for i in range( 60 * intWaitTime):
-        if intStatusCode.value > StatusCode.OK: return
+        if intStatusCode.value > StatusCode.ERROR or (intStatusCode.value == StatusCode.ERROR and fltCurrentTemps[0] != 20) : return
         time.sleep(1)
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
- 
-    logging.info("< RUNNING > Chiller reached set Temperature within "+str(abs(fltWaitPercent*100))+ " %")
+    logging.info("< RUNNING > Chiller reached set Temperature within "+str((1-(abs(fltStaveTemp/fltSetTemp)))*100)+ " %, which is within "\
+                  +str(abs(fltWaitPercent*100))+" % limit")
 
-
-
-
+    #Check to see if the temperature has stabilized before ending the wait
+    fltStaveTempOld = fltStaveTemp+2
+    while fltStaveTemp > fltStaveTempOld+1 or fltStaveTemp <fltStaveTempOld -1:
+      fltStaveTempOld = fltStaveTemp 
+      logging.info("< RUNNING > Chiller waiting "+str(intEquiTime)+" min to reach equillibrium")
+      for i in range( 60 * intEquiTime):
+        if intStatusCode.value > StatusCode.ERROR or (intStatusCode.value == StatusCode.ERROR and fltCurrentTemps[0] != 20) : return
+        time.sleep(1)
+        self.funcResetDog(3,intStatusArray)
+      fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
+  
 # ------------------------------------------------------------------------------
 # Function: Shut down Chiller Pump ---------------------------------------------
   def shutdownChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps) :
@@ -340,7 +355,7 @@ class clsChillerRun :
         logging.info(self._strclassname +  ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
         fltCurrentTemps[0] = float(strTemperatureList[itemp])
         self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps)
-        logging.info(self._strclassname + ' Chiller waiting ' + strTimePeriodList[itemp] + ' minutes.')
+        logging.info(self._strclassname + ' Chiller at set temp. Waiting ' + strTimePeriodList[itemp] + ' minutes.')
         for i in range( 60 * int(strTimePeriodList[itemp])):
           if intStatusCode.value > StatusCode.OK: return
           time.sleep(1)

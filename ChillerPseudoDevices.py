@@ -114,7 +114,7 @@ class clsPseudoThermocouple ( clsPseudoDevice ):
         
       # Generating the individual data from Old data
       Tin   = TinOld *( 1- TempPercentChange)+ fltCurrentTemps[0]*TempPercentChange  
-      Tout  = TinOld + (Offset * TinOld)
+      Tout  = ToutOld*(1- TempPercentChange*2)+TinOld*TempPercentChange*2
       Troom = TroomOld + 0.001 * random.random()
       Tbox  = TboxOld + (((Tin+Tout)/2)-TboxOld)*0.001*random.random()
       # Saving the data to _temperaturedata
