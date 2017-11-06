@@ -216,7 +216,7 @@ class clsChillerRun :
 
     #Calculate what percent of the actual temp will be based upon the set temp
     #Effectively it is around 30% at -55 and around 1-2% at 20 and 50
-    fltWaitPercent = (2.4332 -0.118982*fltSetTemp+0.00184751*fltSetTemp*fltSetTemp)/fltSetTemp
+    fltWaitPercent = (3.72622 -0.13636925*fltSetTemp+0.00207182*fltSetTemp*fltSetTemp)/fltSetTemp
     #Calculate Boundaries of the set temp
     fltSetTempUp = fltSetTemp + abs(fltWaitPercent*fltSetTemp) 
     fltSetTempDwn = fltSetTemp - abs(fltWaitPercent*fltSetTemp) 
