@@ -206,7 +206,7 @@ class clsThermocouple ( clsDevice ):
       idxbase = idxbase + 2
 
       #print( strTall )
-      logging.info( strTall )
+      #logging.info( strTall )
 
   def last(self, lineIdx = 0) :
     """
