@@ -184,8 +184,8 @@ class clsChillerRun :
     cmdList = ['cStart','iUnlockDrive','iUnlockParameter','iStart']
     for cmd in cmdList:
       self.sendcommand(self, cmd, intStatusCode,fltCurrentTemps)
-      time.sleep(5)
-   
+      time.sleep(5) 
+
     strPumpRunRPM = '22'
     try:
       strPumpRunRPM = self._istRunCfg.get( 'Pump', 'RunRPM' )
@@ -277,6 +277,11 @@ class clsChillerRun :
     # Key: Chiller and Pump commands 
     # Value: information for logging
     #
+    
+
+    strChiStopTemp = str(round(fltCurrentTemps[4]))  # Set to actual room Temperature...
+
+
     strCommandDict = { 'cChangeSetpoint=' + strChiStopTemp : self._strclassname + ' Chiller change set point to ' + strChiStopTemp,
                        'iRPM=' + strPumpStopRPM :            self._strclassname + ' Pump change RPM to '+strPumpStopRPM,
                        'iStop' :                             self._strclassname + ' Pump shutting down', 
@@ -405,7 +410,7 @@ class clsChillerRun :
     # Default values
     fltTUpperLimit =  60 # upper limit in C for liquid temperature
     fltTLowerLimit = -55 # lower limit in C for liquid temperature
-    intFrequency   =  10 # one data point per ? seconds
+    intFrequency   =  29 # one data point per ? seconds
     intDataPerRead =  29 # number of data points every time user read, ~1 data point / 1 second
     intIdxTLiquid  =   0 # index of the thermocouple connected to liquid temperature, 0 - 3
 

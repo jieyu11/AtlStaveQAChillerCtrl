@@ -192,8 +192,13 @@ class clsThermocouple ( clsDevice ):
       strTall = '<DATA> ThermoDaPt ' + str(Lidx)
       for Tidx in range( self._intDataPoint ) :
         strTval = strLine[idxbase+2:idxbase+4] + strLine[idxbase:idxbase+2] + strLine[idxbase+6:idxbase+8] 
+        strTsign = strLine[idxbase+4:idxbase+6]
+        if strTsign == '10':
+          fltTsign = -1
+        else:
+          fltTsign = 1
         #print (' THE value ' + strTval )
-        Tval = int(strTval) / 1000
+        Tval = int(strTval) / 1000 * fltTsign
         self._temperaturedata[ Lidx ][ Tidx ] = Tval
 
         #strTall.append( ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) )
@@ -216,10 +221,10 @@ class clsThermocouple ( clsDevice ):
     if lineIdx < 0 :
       logging.warning( ' data line index ' + str(lineIdx) + ' < 0!! set to 0. ' )
       lineIdx = 0
-    elif lineIdx >= self._intDataPoint :
-      logging.warning( ' data line index ' + str(lineIdx) + ' >= ' + str(self._intDataPoint) + \
-                       '!! set to ' + str(self._intDataPoint - 1) + '.' )
-      lineIdx = self._intDataPoint - 1
+    elif lineIdx >= self._intDataLines :
+      logging.warning( ' data line index ' + str(lineIdx) + ' >= ' + str(self._intDataLines) + \
+                       '!! set to ' + str(self._intDataLines - 1) + '.' )
+      lineIdx = self._intDataLines - 1
 
     return tuple( self._temperaturedata[lineIdx] )
 
@@ -286,9 +291,10 @@ class clsPump ( clsDevice ):
     """
       Pump: function of reading data
     """
+    #logging.info(' ==== Pump read through ' + strCmdName + ' and parameter: ' + strCmdPara)
     if strCmdPara == "" : 
       logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName )
-      self._pdev.write( bytes.fromhex(strCmdName) )
+      self._pdev.write( bytes.fromhex(strCmdName))
       logging.debug( ' READING: ' + strCmdName + ' COMMAND sent ' )
 
     else :

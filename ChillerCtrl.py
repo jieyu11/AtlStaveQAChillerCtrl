@@ -46,7 +46,7 @@ from ChillerRun import *        # This is our own code. States what each process
 
 strPyVersion = "3.6"
 strCodeVersion ="V1.0"
-intLoggingLevel = logging.INFO
+intLoggingLevel = logging.INFO # DEBUG
 strStartTime = str(time.strftime( '%m/%d/%Y %I:%M:%S %p',time.localtime()))
 strStartTimeVal = time.time()
 # -----------------------------------------------------------------------------
