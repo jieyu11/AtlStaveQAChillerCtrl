@@ -230,8 +230,8 @@ class clsChillerRun :
         time.sleep(1)
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
-    logging.info("< RUNNING > Chiller reached set Temperature within "+str((1-(abs(fltStaveTemp/fltSetTemp)))*100)+ " %, which is within "\
-                  +str(abs(fltWaitPercent*100))+" % limit")
+    logging.info("< RUNNING > Chiller reached Temperature " + str(round(fltStaveTemp,2)) + " C, within Range("  \
+                    +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") ")
 
     #Check to see if the temperature has stabilized before ending the wait
     fltStaveTempOld = fltStaveTemp+2
