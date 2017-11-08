@@ -138,7 +138,7 @@ class clsChillerRun :
       with a name strLogName.
     """
     root = logging.getLogger()# Defines the logger
-    h = logging.handlers.RotatingFileHandler(strLogName,'a',1000000,10) # Creates a rotating file handler to control how the queue works
+    h = logging.handlers.RotatingFileHandler(strLogName,'a',1000000000000,10) # Creates a rotating file handler to control how the queue works
     f = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')# Creates format of all logged material
     h.setFormatter(f)# Sets format of the handler
     root.addHandler(h) #Adds the handler to the logger
