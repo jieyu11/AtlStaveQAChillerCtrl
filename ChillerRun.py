@@ -283,7 +283,7 @@ class clsChillerRun :
     strChiStopTemp = str(round(fltCurrentTemps[4]))  # Set to actual room Temperature...
 
 
-    strCommandDict = { 'cChangeSetpoint=' + strChiStopTemp : self._strclassname + ' Chiller change set point to ' + strChiStopTemp,
+    strCommandDict = { 'cChangeSetpoint=' + strChiStopTemp : self._strclassname + ' Changing Chiller set point to ' + strChiStopTemp + ' C. ',
                        'iRPM=' + strPumpStopRPM :            self._strclassname + ' Pump change RPM to '+strPumpStopRPM,
                        'iStop' :                             self._strclassname + ' Pump shutting down', 
                        'cStop' :                             self._strclassname + ' Chiller shutting down'}
