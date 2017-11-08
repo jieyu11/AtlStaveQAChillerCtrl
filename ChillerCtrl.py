@@ -204,7 +204,14 @@ def main( ) :
   if val == 'y' or val == 'Y':
     bolRunPseudo = True
   if bolRunPseudo == False:
-    input("**********     USER: Check the status of the pump, chiller and pipes. If all are set press enter")
+    input("**********     USER: Check the status of the... \n\n\
+                    Pump           == Is it on and in correct state?\n\
+                    Chiller        == Is it set to remote?\n\
+                    Pipes          == Are they all open?\n\
+                    Temp. Logger   == Is it on and in pc mode?\n\
+                    Humidity probe == Is it not on auto off?\n\n\
+                    ChillerRunConfig.txt is set...\n\n\
+                     If all are set press enter")
   
   #Second ask the user if they want to send emails...
   val = input("**********     USER:Do you wish to send emails to notify when shutdown occurs? (y/n)\n")

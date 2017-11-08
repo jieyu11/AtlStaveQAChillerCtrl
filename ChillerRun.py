@@ -170,7 +170,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: Start Chiller Pump -------------------------------------------------
-  def startChillerPump (self,queue,intStatusCode,fltCurrentTemps) :
+  def startChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps) :
     """
       Procedure to start the Chiller and Pump:
       * Start Chiller 
@@ -185,6 +185,7 @@ class clsChillerRun :
     for cmd in cmdList:
       self.sendcommand(self, cmd, intStatusCode,fltCurrentTemps)
       time.sleep(5) 
+      self.funcResetDog(3,intStatusArray)
 
     strPumpRunRPM = '22'
     try:
@@ -203,7 +204,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: Chiller Wait -------------------------------------------------------
-  def chillerWait (self, intTime, intStatusCode, intStatusArray,fltCurrentTemps) :
+  def chillerWait (self, intTime, intStatusCode, intStatusArray,fltCurrentTemps,bolShutdown=False) :
     '''
       Checks the temperature at the stave core. If it has held its value for 
       more than 5 minutes it allows the system to continue.
@@ -218,19 +219,19 @@ class clsChillerRun :
     #Effectively it is around 30% at -55 and around 1-2% at 20 and 50
     fltWaitPercent = (3.72622 -0.13636925*fltSetTemp+0.00207182*fltSetTemp*fltSetTemp)/fltSetTemp
     #Calculate Boundaries of the set temp
-    fltSetTempUp = fltSetTemp + abs(fltWaitPercent*fltSetTemp) 
-    fltSetTempDwn = fltSetTemp - abs(fltWaitPercent*fltSetTemp) 
+    fltSetTempUp = fltSetTemp + abs(fltWaitPercent*fltSetTemp)+2 
+    fltSetTempDwn = fltSetTemp - abs(fltWaitPercent*fltSetTemp)-2 
 
     #When our temp has falled within the boundaries this loop ends
     while fltStaveTemp > fltSetTempUp or fltStaveTemp < fltSetTempDwn:
       logging.info( "< RUNNING > Chiller waiting for "+str(intWaitTime)+ " min to get to set Temp. Range("  \
                     +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") Current Temp. = "+str(round(fltStaveTemp,2)))
       for i in range( 60 * intWaitTime):
-        if intStatusCode.value > StatusCode.ERROR or (intStatusCode.value == StatusCode.ERROR and fltCurrentTemps[0] != 20) : return
+        if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False: return
         time.sleep(1)
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
-    logging.info("< RUNNING > Chiller reached Temperature " + str(round(fltStaveTemp,2)) + " C, within Range("  \
+    logging.info("< RUNNING > Stave reached Temperature " + str(round(fltStaveTemp,2)) + " C, within Range("  \
                     +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") ")
 
     #Check to see if the temperature has stabilized before ending the wait
@@ -239,7 +240,7 @@ class clsChillerRun :
       fltStaveTempOld = fltStaveTemp 
       logging.info("< RUNNING > Chiller waiting "+str(intEquiTime)+" min to reach equillibrium")
       for i in range( 60 * intEquiTime):
-        if intStatusCode.value > StatusCode.ERROR or (intStatusCode.value == StatusCode.ERROR and fltCurrentTemps[0] != 20) : return
+        if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False : return
         time.sleep(1)
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
@@ -305,8 +306,8 @@ class clsChillerRun :
           intTimeCool = 60 * int( self._istRunCfg.get( 'Chiller', 'StopCoolTime' ) ) # parameter in minutes
         except :
           pass
-        
-        self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps)
+        bolShutdown =True
+        self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps,bolShutdown)
         logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
         for i in range( intTimeCool ):
           # check second by second the status of the system
@@ -382,7 +383,7 @@ class clsChillerRun :
     self.funcInitialize(self,["Chiller","Pump"], bolRunPseudo,fltCurrentTemps)
     time.sleep(10)
 
-    self.startChillerPump (self,queue,intStatusCode,fltCurrentTemps)
+    self.startChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps)
 
     for strsectionname in [ name for name in self._istRunCfg.sections() if "Chiller" in name ]:
       self.runChillerPumpLoops(self,queue, intStatusCode,intStatusArray,fltProgress,fltCurrentTemps, name = strsectionname) 
