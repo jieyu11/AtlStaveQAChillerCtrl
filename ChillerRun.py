@@ -332,8 +332,6 @@ class clsChillerRun :
                      self._istRunCfg.name() )
     logging.info("---------- Section: "+ name + ", number of loops " + str(intChiNLoops) )    
 
-    fltProgressStep = float(100 / (intChiNLoops * 4))
-
 
     # don't run any loop if it is set to 0 or negative
     if intChiNLoops <= 0: return
@@ -347,6 +345,7 @@ class clsChillerRun :
                      self._istRunCfg.name() )
 
     intNTemperature = len( strTemperatureList )
+    fltProgressStep = float(100 / (intChiNLoops * intNTemperature))
     if intNTemperature != len(strTimePeriodList) :
       logging.warning( ' Length of temperature list ' + str(intNTemperature) + ' != ' + \
                        ' Length of time period list ' + str( len( strTimePeriodList ) ) + '. Set to Min.' )
