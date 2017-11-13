@@ -49,20 +49,6 @@ strCodeVersion ="V1.0"
 intLoggingLevel = logging.INFO # DEBUG
 strStartTime = str(time.strftime( '%m/%d/%Y %I:%M:%S %p',time.localtime()))
 strStartTimeVal = time.time()
-# -----------------------------------------------------------------------------
-# Logging ---------------------------------------------------------------------
-#
-# Generate name of log File
-#strLogName = str(time.strftime( '%Y-%m-%d_%I-%M%p_',time.localtime()))+'ChillerRun.log'
-#
-#logging.basicConfig(filename=strLogName,
-#                    level=intLoggingLevel, \
-#                    format='%(asctime)s %(levelname)s: %(message)s', \
-#                    datefmt='%m/%d/%Y %I:%M:%S %p')
-#
-# Prints first header to the log file
-#logging.info('Python version: ' + strPyVersion )
-#logging.info('Chiller Control Code version: ' + strCodeVersion)
 
 # ------------------------------------------------------------------------------
 # System Loading ---------------------------------------------------------------
@@ -149,6 +135,13 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
     elif val == 'temps':
       i = 0
       strTempNames = ["TSet","T1  ","T2  ","T3  ","T4  "]
+
+      #Temperature values
+      #T1 = Stave Input Temperature
+      #T2 = Stave Output Temperature
+      #T3 = Stave Continment Box Temperature
+      #T4 = Room Temperature      
+
       for p in fltCurrentTemps:
         print("     "+ strTempNames[i] +": "+ str(round(p,1))+" C")
         i+=1
