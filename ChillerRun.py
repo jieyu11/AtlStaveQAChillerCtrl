@@ -56,11 +56,12 @@ class ProcessCode (IntEnum) :
     This defines the values of the global intStatusArray, which keeps track
     of the individual processes.
   """
-  OK      = 0  # -> process has been petted, meaning it is running normally
-  SLEEP   = 1  # -> process needs to be petted, otherwise it will cause a timeout warning
-  DEAD    = 2  # -> process has not been petted for 60 seconds. It is now considered dead
+  OK        = 0  # -> process has been petted, meaning it is running normally
+  SLEEP     = 1  # -> process needs to be petted, otherwise it will cause a timeout warning
+  DEAD      = 2  # -> process has not been petted for 60 seconds. It is now considered dead
                    #The system will be put in the appropriate shutdown state
-  ERROR1  = 3  # -> process has other specific error
+  ERROR1    = 3  # -> process has other specific error
+  HOLD      = 4  # -> the chillerRun process is waitining to be reactivated
  
 # ------------------------------------------------------------------------------
 # Class ChillerRun -------------------------------------------------------------
@@ -246,14 +247,15 @@ class clsChillerRun :
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
 
+    #Check to see if the code is to wait for a user's input
     if bolWaitInput == True and intStatusCode.value==StatusCode.OK:
-      intStatusArray[3] = ProcessCode.DEAD # Makes the watchdog ignore this process as it waits for user input
-      print("**********     The system is holding the current set Temp "+str(fltSetTemp)+" C\n     USER: Type release and hit enter")
-      while intStatusArray[3] == ProcessCode.DEAD and intStatusCode.value==StatusCode.OK:
+      intStatusArray[3] = ProcessCode.HOLD # Makes the watchdog ignore this process as it waits for user input
+      logging.info("----------     The system is holding the current set Temp "+str(fltSetTemp)+" C")
+      print("**********     USER:To Release, type release and hit enter")
+      while intStatusArray[3] == ProcessCode.HOLD and intStatusCode.value==StatusCode.OK:
         time.sleep(1)
-        #print('wait')
       self.funcResetDog(3,intStatusArray)
-
+      logging.info("----------     The system has been released.")
 
 # ------------------------------------------------------------------------------
 # Function: Shut down Chiller Pump ---------------------------------------------
@@ -634,7 +636,12 @@ class clsChillerRun :
         elif p == ProcessCode.OK:
           intCurrentState[i] = ProcessCode.OK
 
-        #Resets all process statuses to SLEEP
+        if p == ProcessCode.HOLD and intCurrentState[i]==ProcessCode.OK: #Flags and Sends a Chiller has been held message
+          logging.warning(strWatchDog+' Noticed Chiller was held. Sending Reminders!')
+          mail('REMINDER!','The Chiller has reached the set temperature!')
+          intCurrentState[i]=ProcessCode.HOLD
+
+        #Resets all non error or higher process statuses to SLEEP
         if p < ProcessCode.DEAD:        
           intStatusArray[i] = ProcessCode.SLEEP
         i += 1 

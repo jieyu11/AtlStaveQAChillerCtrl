@@ -14,7 +14,7 @@ This file contains the main body of code.
 
 History: ----------------------------------------------------------------------
 	V1.0 - Oct-2017  First public release.
-	
+  V1.1 - Nov-2017  Added chiller Wait function to hold temperatures until user releases	
 Environment: ------------------------------------------------------------------
 	This program is written in Python 3.6.  Python can be freely downloaded from 
 http://www.python.org/.  This program has been tested on PCs running Windows 10.
@@ -45,7 +45,7 @@ from ChillerRun import *        # This is our own code. States what each process
 # Global data section ----------------------------------------------------------
 
 strPyVersion = "3.6"
-strCodeVersion ="V1.0"
+strCodeVersion ="V1.1"
 intLoggingLevel = logging.INFO # DEBUG
 strStartTime = str(time.strftime( '%m/%d/%Y %I:%M:%S %p',time.localtime()))
 strStartTimeVal = time.time()
@@ -156,11 +156,11 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
       print("     progress  = shows how far into the loop the system is")
       print("     status    = shows current status of all running processes")
       print("     temps     = shows last temp, humidity, and set temp values")
+      print("     release   = releases chiller from held temperature")
       print("     help      = shows all commands")
 
     # Changes the process status and releases the held temperature
     elif val == 'release':
-      print("     Releasing")
       intStatusArray[3]= ProcessCode.OK
 
     # A Debugging command that kills a single specified process 
