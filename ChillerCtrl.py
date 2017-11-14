@@ -158,6 +158,10 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
       print("     temps     = shows last temp, humidity, and set temp values")
       print("     help      = shows all commands")
 
+    # Changes the process status and releases the held temperature
+    elif val == 'release':
+      print("     Releasing")
+      intStatusArray[3]= ProcessCode.OK
 
     # A Debugging command that kills a single specified process 
     elif val == 'pkill':
@@ -204,9 +208,17 @@ def main( ) :
                     Temp. Logger   == Is it on and in pc mode?\n\
                     Humidity probe == Is it not on auto off?\n\n\
                     ChillerRunConfig.txt is set...\n\n\
-                     If all are set press enter")
-  
-  #Second ask the user if they want to send emails...
+                     If all are set, press enter")
+
+  #Second ask the user if they want to wait when the chiller gets to a set temperature
+  val = input("**********     USER:Do you wish to hold and wait for user input, when the system reaches set temperatures? (y/n)\n")
+  bolWaitInput = False
+  #print(" ChangedbolWaitInput to False")
+  if val == 'y' or val == 'Y':
+    bolWaitInput = True
+    #print(" Changed bolWaitInput to True")
+
+  #Third ask the user if they want to send emails...
   val = input("**********     USER:Do you wish to send emails to notify when shutdown occurs? (y/n)\n")
   bolSendEmail = False
   if val == 'y' or val == 'Y':
@@ -238,7 +250,7 @@ def main( ) :
 
   # The RunChill process controls the chiller and booster pump
   mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'RunChill', \
-                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,intLoggingLevel,bolRunPseudo,)) ) 
+                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,intLoggingLevel,bolWaitInput,bolRunPseudo,)) ) 
 
   # The WatchDog process makes certain all other processes are currently running,
   #and in the event of problems shuts down the chiller, it also is used for messaging

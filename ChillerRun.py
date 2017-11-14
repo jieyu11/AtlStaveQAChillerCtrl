@@ -205,7 +205,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Function: Chiller Wait -------------------------------------------------------
-  def chillerWait (self, intTime, intStatusCode, intStatusArray,fltCurrentTemps,bolShutdown=False) :
+  def chillerWait (self, intTime, intStatusCode, intStatusArray,fltCurrentTemps,bolWaitInput=False,bolShutdown=False) :
     '''
       Checks the temperature at the stave core. If it has held its value for 
       more than 5 minutes it allows the system to continue.
@@ -245,7 +245,16 @@ class clsChillerRun :
         time.sleep(1)
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
-  
+
+    if bolWaitInput == True and intStatusCode.value==StatusCode.OK:
+      intStatusArray[3] = ProcessCode.DEAD # Makes the watchdog ignore this process as it waits for user input
+      print("**********     The system is holding the current set Temp "+str(fltSetTemp)+" C\n     USER: Type release and hit enter")
+      while intStatusArray[3] == ProcessCode.DEAD and intStatusCode.value==StatusCode.OK:
+        time.sleep(1)
+        #print('wait')
+      self.funcResetDog(3,intStatusArray)
+
+
 # ------------------------------------------------------------------------------
 # Function: Shut down Chiller Pump ---------------------------------------------
   def shutdownChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps) :
@@ -307,8 +316,9 @@ class clsChillerRun :
           intTimeCool = 60 * int( self._istRunCfg.get( 'Chiller', 'StopCoolTime' ) ) # parameter in minutes
         except :
           pass
+        bolWaitInput =False
         bolShutdown =True
-        self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps,bolShutdown)
+        self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput,bolShutdown)
         logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
         for i in range( intTimeCool ):
           # check second by second the status of the system
@@ -319,7 +329,7 @@ class clsChillerRun :
         
 # ------------------------------------------------------------------------------
 # Function: run one loop of Chiller Pump ---------------------------------------
-  def runChillerPumpLoops(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps, name = "Chiller") :
+  def runChillerPumpLoops(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,bolWaitInput ,name = "Chiller") :
     """ 
       main routine of every loop running the Chiller and Boost Pump
       set the name parameter if not running the default "Chiller"
@@ -360,7 +370,7 @@ class clsChillerRun :
         self.sendcommand(self, 'cChangeSetpoint=' + strTemperatureList[itemp],intStatusCode ,fltCurrentTemps)
         logging.info(self._strclassname +  ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
         fltCurrentTemps[0] = float(strTemperatureList[itemp])
-        self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps)
+        self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput)
         logging.info(self._strclassname + ' Chiller at set temp. Waiting ' + strTimePeriodList[itemp] + ' minutes.')
         for i in range( 60 * int(strTimePeriodList[itemp])):
           if intStatusCode.value > StatusCode.OK: return
@@ -372,7 +382,7 @@ class clsChillerRun :
  
 # ------------------------------------------------------------------------------
 # Function: run Chiller Pump ---------------------------------------------------
-  def runChillerPump(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,intLoggingLevel,bolRunPseudo) :
+  def runChillerPump(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,intLoggingLevel,bolWaitInput,bolRunPseudo) :
     """
       main routine to run Chiller Pump with user set loops
      """
@@ -386,7 +396,7 @@ class clsChillerRun :
     self.startChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps)
 
     for strsectionname in [ name for name in self._istRunCfg.sections() if "Chiller" in name ]:
-      self.runChillerPumpLoops(self,queue, intStatusCode,intStatusArray,fltProgress,fltCurrentTemps, name = strsectionname) 
+      self.runChillerPumpLoops(self,queue, intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,bolWaitInput, name = strsectionname) 
       # constantly check the status of the system 
       if intStatusCode.value > StatusCode.OK: 
         logging.warning("----------     Shutdown has been Triggered, Beginning Shutdown") 
@@ -625,7 +635,8 @@ class clsChillerRun :
           intCurrentState[i] = ProcessCode.OK
 
         #Resets all process statuses to SLEEP
-        intStatusArray[i] = ProcessCode.SLEEP
+        if p < ProcessCode.DEAD:        
+          intStatusArray[i] = ProcessCode.SLEEP
         i += 1 
 
       #Messaging due to shutdown conditions being met
