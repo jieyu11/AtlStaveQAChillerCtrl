@@ -174,6 +174,50 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
         if processVal == p:
           procList[i].terminate()
         i=i+1
+
+
+
+# ------------------------------------------------------------------------------
+
+def runPseudo():
+  '''
+  This program asks the user if they want to runPseudo Input values or real values
+  '''
+  #First must run a short routine that allows the user to determine if it will run with PseudoData
+  val = input("**********     USER:Do you wish to run with pseudo data? (y/n)\n")
+  if val == 'y' or val == 'Y':
+    return True
+  else:
+    input("**********     USER: Check the status of the... \n\n\
+                    Pump           == Is it on and in correct state?\n\
+                    Chiller        == Is it set to remote?\n\
+                    Pipes          == Are they all open?\n\
+                    Temp. Logger   == Is it on and in pc mode?\n\
+                    Humidity probe == Is it not on auto off?\n\n\
+                    ChillerRunConfig.txt is set...\n\n\
+                     If all are set, press enter")
+    return False
+
+def waitInput():
+  '''
+  This function asks the user if they want to wait at set temperatures or not
+  '''
+  #Second ask the user if they want to wait when the chiller gets to a set temperature
+  val = input("**********     USER:Do you wish to hold and wait for user input, when the system reaches set temperatures? (y/n)\n")
+  #print(" ChangedbolWaitInput to False")
+  if val == 'y' or val == 'Y':
+    return True
+  else:
+    return False
+
+def sendEmail():
+  #Third ask the user if they want to send emails...
+  val = input("**********     USER:Do you wish to send emails to notify when shutdown occurs? (y/n)\n")
+  if val == 'y' or val == 'Y':
+    return True
+  else:
+    return False
+
 # ------------------------------------------------------------------------------
 # ---------------------------- MAIN ROUTINE ------------------------------------
 def main( ) :
@@ -195,34 +239,18 @@ def main( ) :
 
   intro(strLogName)
 
-  #First must run a short routine that allows the user to determine if it will run with PseudoData
-  val = input("**********     USER:Do you wish to run with pseudo data? (y/n)\n")
-  bolRunPseudo = False
-  if val == 'y' or val == 'Y':
-    bolRunPseudo = True
-  if bolRunPseudo == False:
-    input("**********     USER: Check the status of the... \n\n\
-                    Pump           == Is it on and in correct state?\n\
-                    Chiller        == Is it set to remote?\n\
-                    Pipes          == Are they all open?\n\
-                    Temp. Logger   == Is it on and in pc mode?\n\
-                    Humidity probe == Is it not on auto off?\n\n\
-                    ChillerRunConfig.txt is set...\n\n\
-                     If all are set, press enter")
-
-  #Second ask the user if they want to wait when the chiller gets to a set temperature
-  val = input("**********     USER:Do you wish to hold and wait for user input, when the system reaches set temperatures? (y/n)\n")
-  bolWaitInput = False
-  #print(" ChangedbolWaitInput to False")
-  if val == 'y' or val == 'Y':
-    bolWaitInput = True
-    #print(" Changed bolWaitInput to True")
-
-  #Third ask the user if they want to send emails...
-  val = input("**********     USER:Do you wish to send emails to notify when shutdown occurs? (y/n)\n")
-  bolSendEmail = False
-  if val == 'y' or val == 'Y':
-    bolSendEmail = True
+  bolSysSet = False
+  while bolSysSet == False:
+    bolRunPseudo = runPseudo()
+    bolWaitInput = waitInput()
+    bolSendEmail = sendEmail()
+    print("**********     Current Settings:\n")
+    print("                   Using PseudoData?"+str(bolRunPseudo))
+    print("                   Holding Temps?   "+str(bolWaitInput))
+    print("                   Sending Email?   "+str(bolSendEmail)+"\n")
+    val = input("**********     USER: Keep settings and begin? (y/n)\n")
+    if val == 'y' or val =='Y':
+      bolSysSet = True
 
   # The global variables
   queue = mp.Queue(-1)                      # This must be set for the logger to work. VERY IMPORTANT
