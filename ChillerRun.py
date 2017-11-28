@@ -524,11 +524,16 @@ class clsChillerRun :
       fltCurrentHumidity.value = fltHumidity #Sets global humidity
 
       if fltCurrentTemps[0] < 0.:
-        if fltHumidity > fltStopUpperLimit : 
-          logging.error( self._strclassname + ' Chiller temperature set to '+ str( fltCurrentTemps[0] ) +
+        if fltHumidity > fltStopUpperLimit and fltCurrentTemps[1] < 10.: 
+          logging.error( self._strclassname + ' Chiller temp set to '+ str( fltCurrentTemps[0] )+" and current temp is " +
+                         str(round(fltCurrentTemps[1]))+ ' is less than 10 C, while'+
                          ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltStopUpperLimit ) + 
                          ' % upper limit!')
           intStatusCode.value = StatusCode.ERROR 
+        elif fltHumidity > fltStopUpperLimit : 
+          logging.warning( self._strclassname + ' Chiller temperature set to '+ str( fltCurrentTemps[0] ) +
+                           ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltStopUpperLimit ) + 
+                           ' %! May trigger shutdown if stave inlet temp gets too low!') 
         elif fltHumidity > fltWarnUpperLimit : 
           logging.warning( self._strclassname + ' Chiller temperature set to '+ str( fltCurrentTemps[0] ) +
                            ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltWarnUpperLimit ) + ' %') 
