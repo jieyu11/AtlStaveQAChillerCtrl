@@ -519,7 +519,7 @@ class clsChillerRun :
       self.funcResetDog(2,intStatusArray)
       self.sendcommand(self, 'hRead',intStatusCode,fltCurrentTemps )
       fltHumidity = istHumidity.last() 
-      logging.info( '<DATA> Humidity {:4.1f}'.format( fltHumidity ) )
+      logging.info( '<DATA> Humidity {:4.2f}'.format( fltHumidity ) )
 
       fltCurrentHumidity.value = fltHumidity #Sets global humidity
 
