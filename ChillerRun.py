@@ -550,6 +550,9 @@ class clsChillerRun :
     spots to ProcessCode.SLEEP. In each process loop there is funcResetDog that
     sets the spot to ProcessCode.OK. 
     '''
+    if intStatusArray[intProcess] == ProcessCode.HOLD:
+      while intStatusArray[intProcess] == ProcessCode.HOLD:
+        time.sleep(1)
     intStatusArray[intProcess] = ProcessCode.OK
 
   def funcError1Dog (intProcess,intStatusArray): # Gives the Watchdog an error sign, not currently in use
@@ -641,13 +644,15 @@ class clsChillerRun :
         elif p == ProcessCode.OK:
           intCurrentState[i] = ProcessCode.OK
 
-        if p == ProcessCode.HOLD and intCurrentState[i]==ProcessCode.OK: #Flags and Sends a Chiller has been held message
-          logging.warning(strWatchDog+' Noticed Chiller was held. Sending Reminders!')
-          mail('REMINDER!','The Chiller has reached the set temperature!')
+        elif p == ProcessCode.HOLD and intCurrentState[i]==ProcessCode.OK: #Flags and Sends a Chiller has been held message
+          if i == 3:
+            logging.warning(strWatchDog+' Noticed Chiller was held. Sending Reminders!')
+            mail('REMINDER!','The Chiller has reached the set temperature!')
           intCurrentState[i]=ProcessCode.HOLD
 
+        intStatusArray[i] = intCurrentState[i]
         #Resets all non error or higher process statuses to SLEEP
-        if p < ProcessCode.DEAD:        
+        if p == ProcessCode.OK:        
           intStatusArray[i] = ProcessCode.SLEEP
         i += 1 
 

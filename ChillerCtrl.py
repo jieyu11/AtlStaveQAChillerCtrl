@@ -14,7 +14,11 @@ This file contains the main body of code.
 
 History: ----------------------------------------------------------------------
 	V1.0 - Oct-2017  First public release.
-  V1.1 - Nov-2017  Added chiller Wait function to hold temperatures until user releases	
+  V1.1 - Nov-2017  Added chiller Wait function to hold temperatures until user releases
+  V1.2 - Dec-2017  Made many of the user commands give better responses,
+                  added the debug help and the ability to hold any so that the
+                  watchdog doesn't crash. Hopefully this will allow the user to
+                  freeze the program if batteries need to be replaced.	
 Environment: ------------------------------------------------------------------
 	This program is written in Python 3.6.  Python can be freely downloaded from 
 http://www.python.org/.  This program has been tested on PCs running Windows 10.
@@ -45,7 +49,7 @@ from ChillerRun import *        # This is our own code. States what each process
 # Global data section ----------------------------------------------------------
 
 strPyVersion = "3.6"
-strCodeVersion ="V1.1"
+strCodeVersion ="V1.2"
 intLoggingLevel = logging.INFO # DEBUG
 strStartTime = str(time.strftime( '%m/%d/%Y %I:%M:%S %p',time.localtime()))
 strStartTimeVal = time.time()
@@ -112,24 +116,28 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
     # This option prints lots of stuff about the processes, whether or not they
     #are using pseudo data, and what the current global status is.
     elif val == 'status':
-      print("     Global Status: "+str(intStatusCode.value)+"  Using PseudoData?: "+ str(bolRunPseudo))
+      strGlbStatus=['OK   ','ERROR','FATAL','DONE ']
+      print("     Global Status: "+strGlbStatus[intStatusCode.value]+"  Using PseudoData?: "+ str(bolRunPseudo))
       i=0
+      strStatusVals=['OK','Sleep','DEAD (:()','ERROR1... Wha... This shouldnt happen','Held']
       for p in procList:
         if i == 4:
           print("     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))            
         else:  
-          print("     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive())+" PStatus: "+str(intStatusArray[i]))          
+          print("     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive())+" PStatus: "+strStatusVals[intStatusArray[i]])          
         i+=1
     # This option prints the current progress of the loop. It also attempts to
     #calcuate the remaining time of the loop( It is not that great at the beginning.)
     elif val == 'progress':
       if intStatusCode.value == StatusCode.OK:
         print("     Loop Progress: "+str(fltProgress.value)+'%')
+      print("     Program Started: "+str(strStartTime ))
+      print("     Current Run Time: " + str(round((time.time()-strStartTimeVal)/60,2))+" mins")
+
       if intStatusCode.value > StatusCode.OK:
         print("     Loop Progress: Finished")
-      print("     System Started: "+str(strStartTime ))
-      print("     Current Run Time: " + str(round((time.time()-strStartTimeVal)/60,2))+" mins")
-      print("     Estimated loop time remaining... " + str(round((((time.time()-strStartTimeVal)/(0.0001+fltProgress.value))/0.60)-((time.time()-strStartTimeVal)/60))) + ' mins')
+      elif fltProgress.value > 0:
+        print("     Estimated loop time remaining... " + str(round((((time.time()-strStartTimeVal)/(0.0000001+fltProgress.value))/0.60)-((time.time()-strStartTimeVal)/60))) + ' mins')
 
     # Prints current temperature setting, temperature readings, and humidity reading
     elif val == 'temps':
@@ -149,7 +157,7 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
 
     # Prints the list of commands
     elif val == 'help':
-      print("     __Full_list_of_Commands__") 
+      print("     __List_of_Commands__") 
       print("     kill      = stops all processes, does not shutdown pump or chiller")
       print("     eshutdown = stops the chiller and then pump without full cooldown")
       print("     shutdown  = sets the system into a shutdown mode")
@@ -162,6 +170,13 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
     # Changes the process status and releases the held temperature
     elif val == 'release':
       intStatusArray[3]= ProcessCode.OK
+    # Gives all Debug Commands
+    elif val == 'dhelp':
+      print("     __Debug_Commands__")
+      print("     pkill    = Kills a process")
+      print("     phold    = Puts a process into the hold state")
+      print("     prelease = Releases a process from the hold state")
+
 
     # A Debugging command that kills a single specified process 
     elif val == 'pkill':
@@ -174,8 +189,28 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
         if processVal == p:
           procList[i].terminate()
         i=i+1
-
-
+    # A Debugging command that allows the user to ignore a process by making the watchdog think its dead
+    elif val == 'phold':
+      Pnames=[]
+      for p in procList:
+        Pnames.append(p.name)
+      processVal = input('Of '+str(Pnames)+' Type the process you wish to make the watchdog ignore?\n')
+      i = 0
+      for p in Pnames:
+        if processVal == p and i != 4:
+          intStatusArray[i] = ProcessCode.HOLD
+        i += 1
+    # A Debugging command that allows the user to put
+    elif val == 'prelease':
+      Pnames=[]
+      for p in procList:
+        Pnames.append(p.name)
+      processVal = input('Of '+str(Pnames)+' Type the process you wish to make the watchdog ignore?\n')
+      i = 0
+      for p in Pnames:
+        if processVal == p and i != 4:
+          intStatusArray[i] = ProcessCode.OK
+        i += 1
 
 # ------------------------------------------------------------------------------
 
