@@ -60,9 +60,9 @@ class ProcessCode (IntEnum) :
   SLEEP     = 1  # -> process needs to be petted, otherwise it will cause a timeout warning
   DEAD      = 2  # -> process has not been petted for 60 seconds. It is now considered dead
                    #The system will be put in the appropriate shutdown state
-  ERROR1    = 3  # -> process has other specific error
-  HOLD      = 4  # -> the chillerRun process is waitining to be reactivated
- 
+  HOLD      = 3  # -> the chillerRun process is waitining to be reactivated
+  ERROR1    = 4  # -> process has other specific error
+
 # ------------------------------------------------------------------------------
 # Class ChillerRun -------------------------------------------------------------
 class clsChillerRun : 
@@ -559,7 +559,7 @@ class clsChillerRun :
     
     intStatusArray[intProcess] = ProcessCode.ERROR1
 
-  def procWatchDog (self,queue, intStatusCode, intStatusArray,bolSendEmail,intLoggingLevel):
+  def procWatchDog (self,queue, intStatusCode, intStatusArray,fltProgress,bolSendEmail,intLoggingLevel):
     '''
       The Watchdog is the system protection protocol. It has 2 purposes,
       1. to keep track of errors
@@ -660,11 +660,13 @@ class clsChillerRun :
       for sec in range(30):
         time.sleep(1)
         if intStatusCode.value == StatusCode.ERROR and sentMessage == False:
-          mail('ERROR Shutdown Triggered!!','The system is shutting down normally')
+          mail('ERROR Shutdown Triggered!!','The system is shutting down normally.\
+                The program was '+str(fltProgress.value)+' % complete.')
           sentMessage = True
         if intStatusCode.value == StatusCode.FATAL and sentMessage == False:
-          mail('FATAL Shutdown Triggered!!','The system was shut down without time to properly cool!')
+          mail('FATAL Shutdown Triggered!!','The system was shut down due to a fatal error.\
+                It has not had time to properly cool! The program was '+str(fltProgress.value)+' % complete.')
           sentMessage = True
         if intStatusCode.value == StatusCode.DONE and sentMessage == False:
-          mail('DONE Shutdown!!','The system has been shutdown normally and all processes have been killed!')
+          mail('DONE Shutdown!!','The system has been shutdown. The program was completed with no fuss!')
           sentMessage = True

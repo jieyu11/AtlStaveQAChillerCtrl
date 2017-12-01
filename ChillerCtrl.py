@@ -318,7 +318,7 @@ def main( ) :
   # The WatchDog process makes certain all other processes are currently running,
   #and in the event of problems shuts down the chiller, it also is used for messaging
   mpList.append( mp.Process(target = clsChillerRun.procWatchDog, name = 'WatchDog', \
-                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,bolSendEmail,intLoggingLevel)) )
+                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltProgress,bolSendEmail,intLoggingLevel)) )
 
   
   print("**********     BEGINNING PROCESSES")
@@ -341,6 +341,8 @@ def main( ) :
 
   print("**********     ALL PROCESSES ARE SHUTDOWN! HAVE A NICE DAY!")
 
+
+
 if __name__ == '__main__' : 
 
   # The 'spawn' start method is required to make the code work on both mac and
@@ -351,30 +353,3 @@ if __name__ == '__main__' :
 
   main()
 
-# Upon startup print on computer screen this code version.
-#
-# Create a log text file for historical recording of actions and time stamp with
-# temperture data from all temperature sensors. (humidity?) The log file will 
-# have a date and code version header.  Notify user of success or read issues.
-# 
-# Open and read the configuration file.  This file contains all the settings for
-# the chiller unit, booster pump, and RS-232 & USB:RS-485 serial interfaces.
-# Notify user & log succes or issues.
-#
-# If no issues reading configuration file, 1st set the USB-serial ports.  Send a 
-# status command to the equipment.  If no issues, set all devices to defined 
-# configuration. Notify user & log success or issues setting devices.
-#
-# Open and read the command file for the chiller and booster pump.  Load the
-# commands into a dictionary construct.  Notify user & log success or issues. 
-# If issues reading the command file exit program.
-# Internal to this program are specific commands: Loop, EndLoop, wait, & exit. 
-# 
-# In a infinite loop with shutdown hook, prompt user for a command and execute
-# command. Log commands given.  At set frequency log the time, temperature(s),
-# and humidity.
-#
-# Upon exit command, check chiller has been set to room temperature.  If not,
-# do so.  Inform user of action and log status.  If chiller at room temperature
-# log end of run, close log file and exit.
-#
