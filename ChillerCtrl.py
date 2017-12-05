@@ -119,7 +119,7 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
       strGlbStatus=['OK   ','ERROR','FATAL','DONE ']
       print("     Global Status: "+strGlbStatus[intStatusCode.value]+"  Using PseudoData?: "+ str(bolRunPseudo))
       i=0
-      strStatusVals=['OK','Sleep','DEAD (:()','ERROR1... Wha... This shouldnt happen','Held']
+      strStatusVals=['OK','Sleep','DEAD (:,()','Held','Waiting for Humidity to decrease']
       for p in procList:
         if i == 4:
           print("     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))            

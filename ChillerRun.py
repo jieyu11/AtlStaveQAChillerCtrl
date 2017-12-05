@@ -62,7 +62,6 @@ class ProcessCode (IntEnum) :
                    #The system will be put in the appropriate shutdown state
   HOLD      = 3  # -> the chillerRun process is waitining to be reactivated
   ERROR1    = 4  # -> process has other specific error
-
 # ------------------------------------------------------------------------------
 # Class ChillerRun -------------------------------------------------------------
 class clsChillerRun : 
@@ -205,6 +204,24 @@ class clsChillerRun :
     logging.info(self._strclassname + " Pump change RPM to "+strPumpRunRPM)
 
 # ------------------------------------------------------------------------------
+# Function: Humidity Wait ------------------------------------------------------
+  def humidityWait (self, intStatusCode, intStatusArray,fltCurrentTemps) :
+    '''
+      Changes the set temperature to 10 C in the event that the stave was set to a low
+      temperature but it has too high humidity.
+    '''
+    intSetTemp = fltCurrentTemps[0]
+    intWaitTemp = 10       
+    self.sendcommand(self, 'cChangeSetpoint=' + str(intWaitTemp),intStatusCode ,fltCurrentTemps)
+    fltCurrentTemps[0] = intWaitTemp
+    logging.warning("< RUNNING > Due to high humidity, TSet changed to " + str(intWaitTemp)+' C')
+    while intStatusCode.value == StatusCode.OK and intStatusArray[2] == ProcessCode.ERROR1:
+      time.sleep(1)
+      self.funcResetDog(3,intStatusArray)
+    logging.warning("< RUNNING > Stave humidity is now low enough for cold settings. Reverting back to original set temp "+str(intSetTemp)+' C')
+    self.sendcommand(self, 'cChangeSetpoint=' + str(intSetTemp),intStatusCode ,fltCurrentTemps)
+    fltCurrentTemps[0] = intSetTemp
+# ------------------------------------------------------------------------------
 # Function: Chiller Wait -------------------------------------------------------
   def chillerWait (self, intTime, intStatusCode, intStatusArray,fltCurrentTemps,bolWaitInput=False,bolShutdown=False) :
     '''
@@ -230,6 +247,8 @@ class clsChillerRun :
                     +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") Current Temp. = "+str(round(fltStaveTemp,2)))
       for i in range( 60 * intWaitTime):
         if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False: return
+        if intStatusArray[2] == ProcessCode.ERROR1:
+          self.humidityWait(self,intStatusCode,intStatusArray,fltCurrentTemps)
         time.sleep(1)
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
@@ -447,8 +466,7 @@ class clsChillerRun :
         return
     except:
       logging.warning( ' Section: Thermocouple, Key: LiquidUpperThreshold, LiquidLowerThreshold, Frequency not found! Using defaults!')
-      
-    
+         
     istThermocouple = self._istDevHdl.getdevice( 'Thermocouple' )
     if istThermocouple is None:
       logging.error( self._strclassname + ' Thermocouple not found in device list! ')
@@ -516,7 +534,11 @@ class clsChillerRun :
       return
   
     while(intStatusCode.value < StatusCode.DONE ) :
-      self.funcResetDog(2,intStatusArray)
+      if intStatusArray[2] != ProcessCode.ERROR1:
+        self.funcResetDog(2,intStatusArray)
+      elif fltCurrentHumidity.value < fltStopUpperLimit:
+        self.funcResetDog(2,intStatusArray)
+ 
       self.sendcommand(self, 'hRead',intStatusCode,fltCurrentTemps )
       fltHumidity = istHumidity.last() 
       logging.info( '<DATA> Humidity {:4.2f}'.format( fltHumidity ) )
@@ -524,19 +546,15 @@ class clsChillerRun :
       fltCurrentHumidity.value = fltHumidity #Sets global humidity
 
       if fltCurrentTemps[0] < 0.:
-        if fltHumidity > fltStopUpperLimit and fltCurrentTemps[1] < 10.: 
-          logging.error( self._strclassname + ' Chiller temp set to '+ str( fltCurrentTemps[0] )+" and current temp is " +
-                         str(round(fltCurrentTemps[1]))+ ' is less than 10 C, while'+
-                         ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltStopUpperLimit ) + 
-                         ' % upper limit!')
-          intStatusCode.value = StatusCode.ERROR 
-        elif fltHumidity > fltStopUpperLimit : 
-          logging.warning( self._strclassname + ' Chiller temperature set to '+ str( fltCurrentTemps[0] ) +
+        if fltHumidity > fltStopUpperLimit : 
+          logging.warning( self._strclassname + ' Chiller temp setting '+ str( fltCurrentTemps[0] ) +
                            ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltStopUpperLimit ) + 
-                           ' %! May trigger shutdown if stave inlet temp gets too low!') 
+                           ' %! System will wait for humidity to decrease!')
+          intStatusArray[2] = ProcessCode.ERROR1 
         elif fltHumidity > fltWarnUpperLimit : 
-          logging.warning( self._strclassname + ' Chiller temperature set to '+ str( fltCurrentTemps[0] ) +
+          logging.warning( self._strclassname + ' Chiller temp setting '+ str( fltCurrentTemps[0] ) +
                            ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltWarnUpperLimit ) + ' %') 
+
 
       time.sleep( intFrequency - 1 )
     logging.info( self._strclassname + ' Humidity finished recording. ' )
@@ -614,13 +632,24 @@ class clsChillerRun :
     intCurrentState = [ProcessCode.OK,ProcessCode.OK,ProcessCode.OK,ProcessCode.OK]
     sentMessage = False
 
+    intFrostCounter = 0
     while intStatusCode.value < StatusCode.DONE:      
       logging.debug( strWatchDog + ' Checking all process statuses')
       i = 0
       for p in intStatusArray:
 
+        #How to deal with high humidity during a run
+        if p == ProcessCode.ERROR1 and i == 2:
+          logging.warning(strWatchDog+' FROST DANGER! The system will begin shutdown in '+ str((20- intFrostCounter)/2)+ ' min if the humidity does not drop. ')
+          intFrostCounter += 1
+          if intFrostCounter >= 20:
+            logging.error( strWatchDog+' PROCESS: '+strProcesses[i]+' Humidity did not drop soon enough. Begin Shutdown')
+            intStatusCode.value = StatusCode.ERROR #Begin Normal shutdown
+            intCurrentState[i] = ProcessCode.OK #Put the process back into the OK state... so it will continue taking data
+          
+
         #How to deal with a second timeout 
-        if p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.SLEEP:
+        elif p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.SLEEP:
           logging.error(strWatchDog+' PROCESS: '+ strProcesses[i]+' is still Timed Out!!!!')
           if i == 0 or i == 1 or i == 2:# If it is the logger, or one of the two recorders start shutdown
             intStatusCode.value = StatusCode.ERROR
