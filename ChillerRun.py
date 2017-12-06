@@ -642,6 +642,7 @@ class clsChillerRun :
         if p == ProcessCode.ERROR1 and i == 2:
           logging.warning(strWatchDog+' FROST DANGER! The system will begin shutdown in '+ str((20- intFrostCounter)/2)+ ' min if the humidity does not drop. ')
           intFrostCounter += 1
+          intCurrentState[i] = ProcessCode.ERROR1
           if intFrostCounter >= 20:
             logging.error( strWatchDog+' PROCESS: '+strProcesses[i]+' Humidity did not drop soon enough. Begin Shutdown')
             intStatusCode.value = StatusCode.ERROR #Begin Normal shutdown
