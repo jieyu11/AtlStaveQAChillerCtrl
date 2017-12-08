@@ -260,7 +260,7 @@ class clsChiller ( clsDevice ):
         logging.info( ' Device ' + self.strName + ' status OK ')
       elif index ==0 :
         logging.error(' Device ' + self.strName + ' Error status: ' + strLine + '. Return! ' )
-        return
+        raise ValueError("An error occured")
       elif index == 1 :
         strvarname = strLine[0:3]
         fltvarvalue = float( strLine[5:-1] )

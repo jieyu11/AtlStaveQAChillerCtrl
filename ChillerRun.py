@@ -127,9 +127,9 @@ class clsChillerRun :
       logging.debug('sending command %s %s %s' % (strdevname, strcmdname, strcmdpara) )
       self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara,fltCurrentTemps)
     except:
-      #if intStatusCode.value < StatusCode.ERROR:  
-      #  intStatusCode.value = StatusCode.ERROR
-      raise ValueError('Could not find user command: %s in %s' % (strUserCommand, self._istCommand.cfgname() ))
+      if intStatusCode.value == StatusCode.OK:  
+        intStatusCode.value = StatusCode.ERROR
+
 # -----------------------------------------------------------------------------
 # Listener Process ------------------------------------------------------------
   def procListener (self, queue, intStatusArray,strLogName) :
@@ -192,7 +192,7 @@ class clsChillerRun :
     try:
       strPumpRunRPM = self._istRunCfg.get( 'Pump', 'RunRPM' )
     except:
-      raise KeyError("Sections: Pump, Key: RunRPM, not present in configure: %s" % \
+      logging.warning("Sections: Pump, Key: RunRPM, not present in configure: %s" % \
                      self._istRunCfg.name() )
 
     #
@@ -360,8 +360,9 @@ class clsChillerRun :
     try:
       intChiNLoops  = int( self._istRunCfg.get( name, 'NLoops' ) )
     except:
-      logging.error("Sections: "+ name + ", Key: NLoops not present in configure: %s" % \
+      logging.fatal("Sections: "+ name + ", Key: NLoops not present in configure: %s" % \
                      self._istRunCfg.name() )
+      intStatusCode.value = StatusCode.FATAL
     logging.info("---------- Section: "+ name + ", number of loops " + str(intChiNLoops) )    
 
 
@@ -373,8 +374,10 @@ class clsChillerRun :
       strTemperatureList = [ x.strip(' ') for x in self._istRunCfg.get( name, 'Temperagures' ).split(',') ]
       strTimePeriodList  = [ x.strip(' ') for x in self._istRunCfg.get( name, 'TimePeriod'   ).split(',') ]
     except:
-      raise KeyError("Section: "+ name + ", Key: Temperagures, TimePeriod not present in configure: %s" % \
+      intStatusCode.value = StatusCode.FATAL
+      logging.fatal("Section: "+ name + ", Key: Temperagures, TimePeriod not present in configure: %s" % \
                      self._istRunCfg.name() )
+      return
 
     intNTemperature = len( strTemperatureList )
     fltProgressStep = float(100 / (intChiNLoops * intNTemperature))
@@ -462,14 +465,16 @@ class clsChillerRun :
         intFrequency = intDataPerRead
 
       if intIdxTLiquid < 0 and intIdxTLiquid > 3 :
-        logging.error( self._strclassname + ' IdxLiquidTemperature '+ intIdxTLiquid + ' not in [0, 3]. Check! ')
+        logging.fatal( self._strclassname + ' IdxLiquidTemperature '+ intIdxTLiquid + ' not in [0, 3]. Check! ')
+        intStatusCode.value = StatusCode.FATAL
         return
     except:
       logging.warning( ' Section: Thermocouple, Key: LiquidUpperThreshold, LiquidLowerThreshold, Frequency not found! Using defaults!')
          
     istThermocouple = self._istDevHdl.getdevice( 'Thermocouple' )
     if istThermocouple is None:
-      logging.error( self._strclassname + ' Thermocouple not found in device list! ')
+      logging.fatal( self._strclassname + ' Thermocouple not found in device list! ')
+      intStatusCode.value = StatusCode.FATAL
       return
 
     # keep reading data until the process is killed or 
@@ -530,7 +535,8 @@ class clsChillerRun :
 
     istHumidity = self._istDevHdl.getdevice( 'Humidity' )
     if istHumidity is None:
-      logging.error( self._strclassname + ' Humidity not found in device list! ')
+      logging.fatal( self._strclassname + ' Humidity not found in device list! ')
+      intStatusCode.value = StatusCode.FATAL
       return
   
     while(intStatusCode.value < StatusCode.DONE ) :
