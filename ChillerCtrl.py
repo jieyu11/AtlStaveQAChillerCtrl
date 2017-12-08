@@ -305,7 +305,7 @@ def main( ) :
 
   # The Temp Rec process reads temperature data from the Temp Recorder  
   mpList.append( mp.Process(target = clsChillerRun.recordTemperature,name = 'Temp Rec', \
-                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltCurrentTemps,intLoggingLevel,bolRunPseudo,)) )
+                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltCurrentTemps,intLoggingLevel,bolRunPseudo)) )
 
   # The Humi Rec process reads humidity data from the Humidity Recorder
   mpList.append( mp.Process(target = clsChillerRun.recordHumidity,name = 'Humi Rec', \

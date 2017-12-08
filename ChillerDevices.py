@@ -255,23 +255,27 @@ class clsChiller ( clsDevice ):
     byteline = self._pdev.readline()
     strinclines =  byteline.decode()
 
+
     for index, strLine in enumerate(strinclines.splitlines()) :
+
       if index ==0 and strLine[0:2] == str('OK') : 
         logging.info( ' Device ' + self.strName + ' status OK ')
       elif index ==0 :
-        logging.error(' Device ' + self.strName + ' Error status: ' + strLine + '. Return! ' )
-        raise ValueError("An error occured")
+        logging.fatal(' Device ' + self.strName + ' Response from Chiller: ' + strLine + '. FATAL! ' )
+        raise ValueError("A Problem Occured")
       elif index == 1 :
         strvarname = strLine[0:3]
         fltvarvalue = float( strLine[5:-1] )
 
         if strvarname[0:1] != str('F') :
-          logging.error( ' Device ' + self.strName + ' returned message: ' + strLine + ' not recognized. Return!' )
-          return
-
+          logging.fatal( ' Device ' + self.strName + ' returned message: ' + strLine + ' not recognized. FATAL!' )
+          raise ValueError("A Problem Occured")
         self._value = fltvarvalue
-
-        logging.info( ' READING current ' + self.strName + ' value: %4.2f ' % fltvarvalue   )
+        if fltvarvalue > 0:
+          logging.fatal( ' Device ' + self.strName + ' has given alarm: ' +str(fltvarvalue)) 
+          raise ValueError("ALARM IS GOING OFF")
+        #logging.info(str(fltvarvalue))
+        #logging.info( ' READING current ' + self.strName + ' value: %4.2f ' % fltvarvalue   )
         return
 
   def last(self) :
@@ -310,7 +314,7 @@ class clsPump ( clsDevice ):
 
       intcmdpara = int( 10 * fltCmdPara )
       logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName + ' at parameter ' + strCmdPara )
-      strCmdPara = '{:04x}'.format(intcmdpara) # should return a hex number with 015A...
+      strCmdPara = '{:04x}'.format(intcmdpara) # 
       strCmdPara = strCmdPara.upper()
 
       logging.debug ('GOT command name ' + strCmdName)

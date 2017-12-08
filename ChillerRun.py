@@ -127,8 +127,7 @@ class clsChillerRun :
       logging.debug('sending command %s %s %s' % (strdevname, strcmdname, strcmdpara) )
       self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara,fltCurrentTemps)
     except:
-      if intStatusCode.value == StatusCode.OK:  
-        intStatusCode.value = StatusCode.ERROR
+      intStatusCode.value = StatusCode.FATAL
 
 # -----------------------------------------------------------------------------
 # Listener Process ------------------------------------------------------------
@@ -181,11 +180,11 @@ class clsChillerRun :
     """
     logging.info(self._strclassname + " Starting Chiller and Pump") 
     
-    # Start Pump and Chiller if necessary TODO Make it conditional if they are already on
     cmdList = ['cStart','iUnlockDrive','iUnlockParameter','iStart']
     for cmd in cmdList:
       self.sendcommand(self, cmd, intStatusCode,fltCurrentTemps)
-      time.sleep(5) 
+      if intStatusCode.value > StatusCode.OK: return
+      time.sleep(3) 
       self.funcResetDog(3,intStatusArray)
 
     strPumpRunRPM = '22'
@@ -216,7 +215,8 @@ class clsChillerRun :
     fltCurrentTemps[0] = intWaitTemp
     logging.warning("< RUNNING > Due to high humidity, TSet changed to " + str(intWaitTemp)+' C')
     while intStatusCode.value == StatusCode.OK and intStatusArray[2] == ProcessCode.ERROR1:
-      time.sleep(1)
+      self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
+      time.sleep(2.8)
       self.funcResetDog(3,intStatusArray)
     logging.warning("< RUNNING > Stave humidity is now low enough for cold settings. Reverting back to original set temp "+str(intSetTemp)+' C')
     self.sendcommand(self, 'cChangeSetpoint=' + str(intSetTemp),intStatusCode ,fltCurrentTemps)
@@ -245,11 +245,12 @@ class clsChillerRun :
     while fltStaveTemp > fltSetTempUp or fltStaveTemp < fltSetTempDwn:
       logging.info( "< RUNNING > Chiller waiting for "+str(intWaitTime)+ " min to get to set Temp. Range("  \
                     +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") Current Temp. = "+str(round(fltStaveTemp,2)))
-      for i in range( 60 * intWaitTime):
+      for i in range( 12 * intWaitTime):
         if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False: return
         if intStatusArray[2] == ProcessCode.ERROR1:
           self.humidityWait(self,intStatusCode,intStatusArray,fltCurrentTemps)
-        time.sleep(1)
+        self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
+        time.sleep(2.8)
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
     logging.info("< RUNNING > Stave reached Temperature " + str(round(fltStaveTemp,2)) + " C, within Range("  \
@@ -260,9 +261,10 @@ class clsChillerRun :
     while fltStaveTemp > fltStaveTempOld+1 or fltStaveTemp <fltStaveTempOld -1:
       fltStaveTempOld = fltStaveTemp 
       logging.info("< RUNNING > Chiller waiting "+str(intEquiTime)+" min to reach equillibrium")
-      for i in range( 60 * intEquiTime):
+      for i in range( 12 * intEquiTime):
         if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False : return
-        time.sleep(1)
+        self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
+        time.sleep(2.8)
         self.funcResetDog(3,intStatusArray)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
 
@@ -272,7 +274,8 @@ class clsChillerRun :
       logging.info("----------     The system is holding the current set Temp "+str(fltSetTemp)+" C")
       print("**********     USER:To Release, type release and hit enter")
       while intStatusArray[3] == ProcessCode.HOLD and intStatusCode.value==StatusCode.OK:
-        time.sleep(1)
+        self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
+        time.sleep(2.8)
       self.funcResetDog(3,intStatusArray)
       logging.info("----------     The system has been released.")
 
@@ -320,7 +323,7 @@ class clsChillerRun :
                        'cStop' :                             self._strclassname + ' Chiller shutting down'}
 
     for strcommand, strlog in strCommandDict.items() :
-      time.sleep(5) 
+      time.sleep(3) 
       # send the command to the corresponding device
       self.sendcommand(self, strcommand, intStatusCode,fltCurrentTemps)
 
@@ -341,10 +344,11 @@ class clsChillerRun :
         bolShutdown =True
         self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput,bolShutdown)
         logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
-        for i in range( intTimeCool ):
+        for i in range( intTimeCool/5 ):
           # check second by second the status of the system
-          if intStatusCode.value != StatusCode.ERROR: break 
-          time.sleep( 1 ) # in seconds
+          if intStatusCode.value != StatusCode.ERROR: break
+          self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
+          time.sleep( 2.8 ) # in seconds
           self.funcResetDog(3,intStatusArray)
     intStatusCode.value = StatusCode.DONE  
         
@@ -395,10 +399,12 @@ class clsChillerRun :
         logging.info(self._strclassname +  ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
         fltCurrentTemps[0] = float(strTemperatureList[itemp])
         self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput)
-        logging.info(self._strclassname + ' Chiller at set temp. Waiting ' + strTimePeriodList[itemp] + ' minutes.')
-        for i in range( 60 * int(strTimePeriodList[itemp])):
+        if intStatusCode.value == StatusCode.OK:
+          logging.info(self._strclassname + ' Chiller at set temp. Waiting ' + strTimePeriodList[itemp] + ' minutes.')
+        for i in range( 12 * int(strTimePeriodList[itemp])):
           if intStatusCode.value > StatusCode.OK: return
-          time.sleep(1)
+          self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
+          time.sleep(2.8)
           self.funcResetDog(3,intStatusArray)
 
         fltProgress.value += fltProgressStep
@@ -551,7 +557,7 @@ class clsChillerRun :
 
       fltCurrentHumidity.value = fltHumidity #Sets global humidity
 
-      if fltCurrentTemps[0] < 0.:
+      if fltCurrentTemps[0] < 0. and intStatusCode.value==StatusCode.OK:
         if fltHumidity > fltStopUpperLimit : 
           logging.warning( self._strclassname + ' Chiller temp setting '+ str( fltCurrentTemps[0] ) +
                            ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltStopUpperLimit ) + 
