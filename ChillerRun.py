@@ -716,7 +716,7 @@ class clsChillerRun :
         #How to deal with a second timeout 
         elif p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.SLEEP:
           logging.error(strWatchDog+' PROCESS: '+ strProcesses[i]+' is still Timed Out!!!!')
-          if i == Process.CHILLRUN:# If it is the chiller loop alert the authorities, but do not shutdown
+          if i == Process.RUNCHILL:# If it is the chiller loop alert the authorities, but do not shutdown
             logging.error(strWatchDog+' PROCESS: '+strProcesses[i]+' Killing System! ALERT THE AUTHORITIES!!!')  
             mail('Major Error!!!!!!!!','The watchdog lost track of the Chiller and Pump control!!!!')
             sentMessage = True
