@@ -56,12 +56,26 @@ class ProcessCode (IntEnum) :
     This defines the values of the global intStatusArray, which keeps track
     of the individual processes.
   """
-  OK        = 0  # -> process has been petted, meaning it is running normally
-  SLEEP     = 1  # -> process needs to be petted, otherwise it will cause a timeout warning
-  DEAD      = 2  # -> process has not been petted for 60 seconds. It is now considered dead
-                   #The system will be put in the appropriate shutdown state
-  HOLD      = 3  # -> the chillerRun process is waitining to be reactivated
-  ERROR1    = 4  # -> process has other specific error
+  OK        = 0  # -> process has been activated, meaning it is running normally
+  SLEEP     = 1  # -> process needs to be activated, otherwise it will cause a timeout warning
+  DEAD      = 2  # -> process has not been activated for 60 seconds. Or it has
+                      #had a terminal error. It is now considered dead and the
+                      #system will be put in the appropriate shutdown state
+  HOLD      = 3  # -> a process is currently waiting to be reactivated
+  ERROR1    = 4  # -> process has a specific error currently used for frost warnings
+
+# Class ProcessCode -------------------------------------------------------------
+
+class Process (IntEnum) :
+  """
+      Gives the integer value for each process 
+  """
+  LISTENER  = 0
+  TEMP_REC  = 1
+  HUMI_REC  = 2
+  RUNCHILL  = 3
+  WATCHDOG  = 4
+
 # ------------------------------------------------------------------------------
 # Class ChillerRun -------------------------------------------------------------
 class clsChillerRun : 
@@ -87,7 +101,7 @@ class clsChillerRun :
   """
 # ------------------------------------------------------------------------------
 # Function: Initialization -----------------------------------------------------
-  def funcInitialize(self, strDevNameList, bolRunPseudo,fltCurrentTemps) : #TODO get rid of fltCurrentTemps here
+  def funcInitialize(self, strDevNameList, bolRunPseudo,fltCurrentTemps) : 
     '''
     This is funcInitializeialized at the start of each running process. In each process the
     devices are stated in the funcInitializeialization and their configuration occurs. If 
@@ -137,13 +151,12 @@ class clsChillerRun :
       with a name strLogName.
     """
     root = logging.getLogger()# Defines the logger
-    #h = logging.handlers.RotatingFileHandler(strLogName,'a',1000,10) # Creates a rotating file handler to control how the queue works
     h = logging.FileHandler(strLogName,'a')
     f = logging.Formatter('%(asctime)s %(levelname)s: %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')# Creates format of all logged material
     h.setFormatter(f)# Sets format of the handler
     root.addHandler(h) #Adds the handler to the logger
     while True:
-      self.funcResetDog(0,intStatusArray)
+      self.funcResetDog(Process.LISTENER,intStatusArray)
       try:
         # This sets conditions to quit the procListener process when the listener recieves None in the queue.
         record = queue.get()
@@ -185,7 +198,7 @@ class clsChillerRun :
       self.sendcommand(self, cmd, intStatusCode,fltCurrentTemps)
       if intStatusCode.value > StatusCode.OK: return
       time.sleep(3) 
-      self.funcResetDog(3,intStatusArray)
+      self.funcResetDog(Process.RUNCHILL,intStatusArray)
 
     strPumpRunRPM = '22'
     try:
@@ -210,7 +223,7 @@ class clsChillerRun :
     self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
     if intStatusCode.value > StatusCode.ERROR: return
     time.sleep(2.8)
-    self.funcResetDog(3,intStatusArray)
+    self.funcResetDog(Process.RUNCHILL,intStatusArray)
 
 # Function: Humidity Wait ------------------------------------------------------
   def humidityWait (self, intStatusCode, intStatusArray,fltCurrentTemps) :
@@ -223,7 +236,7 @@ class clsChillerRun :
     self.sendcommand(self, 'cChangeSetpoint=' + str(intWaitTemp),intStatusCode ,fltCurrentTemps)
     fltCurrentTemps[0] = intWaitTemp
     logging.warning("< RUNNING > Due to high humidity, TSet changed to " + str(intWaitTemp)+' C')
-    while intStatusCode.value == StatusCode.OK and intStatusArray[2] == ProcessCode.ERROR1:
+    while intStatusCode.value == StatusCode.OK and intStatusArray[Process.HUMI_REC] == ProcessCode.ERROR1:
       self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
     logging.warning("< RUNNING > Stave humidity is now low enough for cold settings. Reverting back to original set temp "+str(intSetTemp)+' C')
     self.sendcommand(self, 'cChangeSetpoint=' + str(intSetTemp),intStatusCode ,fltCurrentTemps)
@@ -254,7 +267,7 @@ class clsChillerRun :
                     +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") Current Temp. = "+str(round(fltStaveTemp,2)))
       for i in range( 12 * intWaitTime):
         if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False: return
-        if intStatusArray[2] == ProcessCode.ERROR1:
+        if intStatusArray[Process.HUMI_REC] == ProcessCode.ERROR1:
           self.humidityWait(self,intStatusCode,intStatusArray,fltCurrentTemps)
         self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
 
@@ -275,10 +288,10 @@ class clsChillerRun :
 
     #Check to see if the code is to wait for a user's input
     if bolWaitInput == True and intStatusCode.value==StatusCode.OK:
-      intStatusArray[3] = ProcessCode.HOLD # Makes the watchdog ignore this process as it waits for user input
+      intStatusArray[Process.RUNCHILL] = ProcessCode.HOLD # Makes the watchdog ignore this process as it waits for user input
       logging.info("----------     The system is holding the current set Temp "+str(fltSetTemp)+" C")
       print("**********     USER:To Release, type release and hit enter")
-      while intStatusArray[3] == ProcessCode.HOLD and intStatusCode.value==StatusCode.OK:
+      while intStatusArray[Process.RUNCHILL] == ProcessCode.HOLD and intStatusCode.value==StatusCode.OK:
         self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
 
       logging.info("----------     The system has been released.")
@@ -330,7 +343,7 @@ class clsChillerRun :
     for strcommand, strlog in strCommandDict.items() : 
       
       # send the command to the corresponding device
-      if intStatusCode.value == StatusCode.FATAL and 'cChangeSetpoint' in strcommand:
+      if intStatusCode.value == StatusCode.FATAL and 'cChangeSetpoint' in strcommand or 'iRPM=' in strcommand:
         pass
       else:
         self.sendcommand(self, strcommand, intStatusCode,fltCurrentTemps) 
@@ -491,7 +504,7 @@ class clsChillerRun :
     # keep reading data until the process is killed or 
     # kill the process if the global status is more serious than an ERROR
     while ( intStatusCode.value < StatusCode.DONE) : 
-      self.funcResetDog(1,intStatusArray)
+      self.funcResetDog(Process.TEMP_REC,intStatusArray)
       # read thermocouple data, every read takes ~25 seconds for 29 data points
       self.sendcommand(self,'tRead',intStatusCode,fltCurrentTemps)
 
@@ -551,10 +564,10 @@ class clsChillerRun :
       return
   
     while(intStatusCode.value < StatusCode.DONE ) :
-      if intStatusArray[2] != ProcessCode.ERROR1:
-        self.funcResetDog(2,intStatusArray)
+      if intStatusArray[Process.HUMI_REC] < ProcessCode.DEAD:
+        self.funcResetDog(Process.HUMI_REC,intStatusArray)
       elif fltCurrentHumidity.value < fltStopUpperLimit:
-        self.funcResetDog(2,intStatusArray)
+        self.funcResetDog(Process.HUMI_REC,intStatusArray)
  
       self.sendcommand(self, 'hRead',intStatusCode,fltCurrentTemps )
       fltHumidity = istHumidity.last() 
@@ -567,7 +580,7 @@ class clsChillerRun :
           logging.warning( self._strclassname + ' Chiller temp setting '+ str( fltCurrentTemps[0] ) +
                            ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltStopUpperLimit ) + 
                            ' %! System will wait for humidity to decrease!')
-          intStatusArray[2] = ProcessCode.ERROR1 
+          intStatusArray[Process.HUMI_REC] = ProcessCode.ERROR1 
         elif fltHumidity > fltWarnUpperLimit : 
           logging.warning( self._strclassname + ' Chiller temp setting '+ str( fltCurrentTemps[0] ) +
                            ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltWarnUpperLimit ) + ' %') 
@@ -586,15 +599,34 @@ class clsChillerRun :
     sets the spot to ProcessCode.OK. 
     '''
     if intStatusArray[intProcess] == ProcessCode.HOLD:
-      while intStatusArray[intProcess] == ProcessCode.HOLD:
+      while intStatusArray[intProcess] == ProcessCode.HOLD and intProcess != Process.RUNCHILL :
         time.sleep(1)
     intStatusArray[intProcess] = ProcessCode.OK
 
-  def funcError1Dog (intProcess,intStatusArray): # Gives the Watchdog an error sign, not currently in use
-    
-    intStatusArray[intProcess] = ProcessCode.ERROR1
+  def strStatus(intStatusCode, intStatusArray,fltProgress,strStartTime,strStartTimeVal,procShortList):
+    '''
+    returns a string that is the current status of the system
+    '''
+    strMessage = []
+    strGlbStatus=['OK   ','ERROR','FATAL','DONE ']
+    strStatusVals=['OK','Sleep','DEAD (:,()','Held','Waiting for Humidity to decrease'] 
 
-  def procWatchDog (self,queue, intStatusCode, intStatusArray,fltProgress,bolSendEmail,intLoggingLevel):
+    strMessage.append("     Program Started: "+str(strStartTime )+'\n')
+    strMessage.append("     Run Time       : " + str(round((time.time()-strStartTimeVal)/60,2))+" mins\n")
+    strMessage.append("     Loop Progress  : "+str(fltProgress.value)+'%\n\n')
+    strMessage.append("     Global Status  : "+strGlbStatus[intStatusCode.value]+'\n') 
+
+    print(intStatusArray[0])
+    i=0
+    for p in procShortList:
+      if i == 4: break
+      strMessage.append("     Process: "+str(p.name)+ ' Status: '+strStatusVals[intStatusArray[i]]+'\n')          
+      i+=1
+    strMessage.append("     Process: Watchdog Status: OK\n")
+    strMessage = ''.join(strMessage)
+    return strMessage
+
+  def procWatchDog (self,queue, intStatusCode, intStatusArray,fltProgress,bolSendEmail,intLoggingLevel,strStartTime,strStartTimeVal,procShortList):
     '''
       The Watchdog is the system protection protocol. It has 2 purposes,
       1. to keep track of errors
@@ -606,13 +638,25 @@ class clsChillerRun :
         TimeOut- The global intStatusArray is used for this. Every 30 seconds the
         watchdog looks at each process's value on the intStatusArray and then sets
         the value to 0. In each process's routine, there is a function called
-        PetDog, which sets the value to 1. If the value is still at 0 after 30 seconds
+        ActivateDog, which sets the value to 1. If the value is still at 0 after 30 seconds
         the watchdog sends out a warning. After sending out the warning, the watchdog
         changes the value of intCurrentState. Currently there are 3 values for each
         process in this array.
         intCurrentState = OK, normal state
                           SLEEP, Timed out once!...
                           DEAD, Timed out twice!... ->Send Email, and/or begin shutdown->Process is considered dead
+
+        Hold- If the user uses commands, they can set a process into the hold state.
+        In a hold state a process does nothing other than wait one second and
+        see if it is still in that state. This allows the user to change a 
+        battery or connection with the device from the pc. (This has been tested with
+        the thermocouples and works). Also it is utilized by the chiller wait function
+        to allow the system to hold at a set temperature.
+
+        Error1- This error is used by a few processes. If the humidity sensor has
+        too high of a value and the temp settings are too low, the runChill will
+        put the temperature into a higher setting and wait for the humidity to
+        drop. If it doesn't in 10 minutes it will put the system into ERROR.
 
         Others- Currently there are no specific error codes, though using higher values of intStatusArray
         or intCurrentState could be used to give that information with the WackDog function
@@ -639,12 +683,15 @@ class clsChillerRun :
 
     def mail(strTitle,strMessage):#This sends an email out if bolSendEmail == true
       if bolSendEmail == True:  
-        print('Sending Message: '+strTitle+': '+strMessage)
+        print('Sending Message: '+strTitle+': '+strMessage+self.strStatus(intStatusCode,intStatusArray,fltProgress,strStartTime,strStartTimeVal,procShortList)) 
         for p in mailList: 
-          clsSendEmails.funcSendMail(clsSendEmails,p,strTitle,strMessage)
+          clsSendEmails.funcSendMail(clsSendEmails,p,strTitle,strMessage +self.strStatus(intStatusCode,intStatusArray,fltProgress,strStartTime,strStartTimeVal,procShortList))
           logging.info(strWatchDog+' Email sent to '+ p) 
           time.sleep(1)
 
+
+
+    
     strProcesses = ['Listener','Temperature Recorder','Humidity Recorder','RunChillerPump']
     intCurrentState = [ProcessCode.OK,ProcessCode.OK,ProcessCode.OK,ProcessCode.OK]
     sentMessage = False
@@ -656,7 +703,7 @@ class clsChillerRun :
       for p in intStatusArray:
 
         #How to deal with high humidity during a run
-        if p == ProcessCode.ERROR1 and i == 2:
+        if p == ProcessCode.ERROR1 and i == Process.HUMI_REC:
           logging.warning(strWatchDog+' FROST DANGER! The system will begin shutdown in '+ str((20- intFrostCounter)/2)+ ' min if the humidity does not drop. ')
           intFrostCounter += 1
           intCurrentState[i] = ProcessCode.ERROR1
@@ -669,25 +716,25 @@ class clsChillerRun :
         #How to deal with a second timeout 
         elif p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.SLEEP:
           logging.error(strWatchDog+' PROCESS: '+ strProcesses[i]+' is still Timed Out!!!!')
-          if i == 0 or i == 1 or i == 2:# If it is the logger, or one of the two recorders start shutdown
-            intStatusCode.value = StatusCode.ERROR
-            intCurrentState[i] = ProcessCode.DEAD
-          else:# If it is the chiller loop alert the authorities, but do not shutdown
+          if i == Process.CHILLRUN:# If it is the chiller loop alert the authorities, but do not shutdown
             logging.error(strWatchDog+' PROCESS: '+strProcesses[i]+' Killing System! ALERT THE AUTHORITIES!!!')  
             mail('Major Error!!!!!!!!','The watchdog lost track of the Chiller and Pump control!!!!')
             sentMessage = True
+            intCurrentState[i] = ProcessCode.DEAD
+          else:# If it is the logger, or one of the two recorders start shutdown
+            intStatusCode.value = StatusCode.ERROR
             intCurrentState[i] = ProcessCode.DEAD
 
         #How to deal with a single timeout
         elif p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.OK: #Flags and Sends a timeout warning and sets the state to timed out
           logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!!')
           intCurrentState[i] = ProcessCode.SLEEP
-          if i == 0:# If the listener times out, we should just put it into shutdown, because we will no longer be logging
+          if i == Process.LISTENER:# If the listener times out, we should just put it into shutdown, because we will no longer be logging
             print(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!! Triggering Shutdown')
             intStatusCode.value = StatusCode.ERROR
             intCurrentState[i] = ProcessCode.DEAD
 
-        #Resetting all petted processes
+        #Resetting all activated processes
         elif p == ProcessCode.OK:
           intCurrentState[i] = ProcessCode.OK
 
@@ -707,13 +754,13 @@ class clsChillerRun :
       for sec in range(30):
         time.sleep(1)
         if intStatusCode.value == StatusCode.ERROR and sentMessage == False:
-          mail('ERROR Shutdown Triggered!!','The system is shutting down normally.\
-                The program was '+str(fltProgress.value)+' % complete.')
+          mail('ERROR Shutdown Triggered!!','The system is shutting down normally.'\
+                +' The program was '+str(fltProgress.value)+' % complete.\n')
           sentMessage = True
         if intStatusCode.value == StatusCode.FATAL and sentMessage == False:
-          mail('FATAL Shutdown Triggered!!','The system was shut down due to a fatal error.\
-                It has not had time to properly cool! The program was '+str(fltProgress.value)+' % complete.')
+          mail('FATAL Shutdown Triggered!!','The system was shut down due to a fatal error.'\
+                +' It has not had time to properly cool! The program was '+str(fltProgress.value)+' % complete.\n')
           sentMessage = True
         if intStatusCode.value == StatusCode.DONE and sentMessage == False:
-          mail('DONE Shutdown!!','The system has been shutdown. The program was completed with no fuss!')
+          mail('DONE Shutdown!!','The system has been shutdown. The program was completed with no fuss!\n')
           sentMessage = True

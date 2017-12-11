@@ -16,9 +16,10 @@ History: ----------------------------------------------------------------------
 	V1.0 - Oct-2017  First public release.
   V1.1 - Nov-2017  Added chiller Wait function to hold temperatures until user releases
   V1.2 - Dec-2017  Made many of the user commands give better responses,
-                  added the debug help and the ability to hold any so that the
-                  watchdog doesn't crash. Hopefully this will allow the user to
-                  freeze the program if batteries need to be replaced.	
+                  added the debug help and the ability to hold any process so that the
+                  watchdog doesn't crash. Hopefully this allows the user to
+                  freeze the program if batteries need to be replaced in either of
+                  the connected probes. Fixed safety features for chiller failure.	
 Environment: ------------------------------------------------------------------
 	This program is written in Python 3.6.  Python can be freely downloaded from 
 http://www.python.org/.  This program has been tested on PCs running Windows 10.
@@ -212,8 +213,7 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
           intStatusArray[i] = ProcessCode.OK
         i += 1
 
-# ------------------------------------------------------------------------------
-
+# Initial Setting Options -------------------------------------------------------
 def runPseudo():
   '''
   This program asks the user if they want to runPseudo Input values or real values
@@ -314,11 +314,11 @@ def main( ) :
   # The RunChill process controls the chiller and booster pump
   mpList.append( mp.Process(target = clsChillerRun.runChillerPump,name = 'RunChill', \
                             args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,intLoggingLevel,bolWaitInput,bolRunPseudo,)) ) 
-
+  procShortList = mpList
   # The WatchDog process makes certain all other processes are currently running,
   #and in the event of problems shuts down the chiller, it also is used for messaging
   mpList.append( mp.Process(target = clsChillerRun.procWatchDog, name = 'WatchDog', \
-                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltProgress,bolSendEmail,intLoggingLevel)) )
+                            args =(clsChillerRun,queue,intStatusCode,intStatusArray,fltProgress,bolSendEmail,intLoggingLevel,strStartTime,strStartTimeVal,procShortList)) )
 
   
   print("**********     BEGINNING PROCESSES")
