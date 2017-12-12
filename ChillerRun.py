@@ -193,7 +193,7 @@ class clsChillerRun :
     """
     logging.info(self._strclassname + " Starting Chiller and Pump") 
     
-    cmdList = ['cStart','iUnlockDrive','iUnlockParameter','iStart']
+    cmdList = ['cStart','iUnlockDrive','iUnlockParameter','iRPM=10','iStart']
     for cmd in cmdList:
       self.sendcommand(self, cmd, intStatusCode,fltCurrentTemps)
       if intStatusCode.value > StatusCode.OK: return
@@ -366,7 +366,7 @@ class clsChillerRun :
           bolShutdown =True
           self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput,bolShutdown)
           logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
-          for i in range( intTimeCool/5 ):
+          for i in range( int(intTimeCool/5) ):
             # check second by second the status of the system
             if intStatusCode.value != StatusCode.ERROR: break
             self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
@@ -571,7 +571,7 @@ class clsChillerRun :
  
       self.sendcommand(self, 'hRead',intStatusCode,fltCurrentTemps )
       fltHumidity = istHumidity.last() 
-      logging.info( '<DATA> Humidity {:4.2f}'.format( fltHumidity ) )
+      logging.info( '<DATA> Humidity {:4.1f}'.format( fltHumidity ) )
 
       fltCurrentHumidity.value = fltHumidity #Sets global humidity
 

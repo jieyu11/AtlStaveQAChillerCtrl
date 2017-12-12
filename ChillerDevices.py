@@ -259,7 +259,7 @@ class clsChiller ( clsDevice ):
     for index, strLine in enumerate(strinclines.splitlines()) :
 
       if index ==0 and strLine[0:2] == str('OK') : 
-        logging.info( ' Device ' + self.strName + ' status OK ')
+        logging.debug( ' Device ' + self.strName + ' status OK ')
       elif index ==0 :
         logging.fatal(' Device ' + self.strName + ' Response from Chiller: ' + strLine + '. FATAL! ' )
         raise ValueError("A Problem Occured")
