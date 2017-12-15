@@ -345,9 +345,15 @@ class clsPump ( clsDevice ):
 
 
     logging.debug( ' READING ' + self.strName + ' commend sent ' )
-    byteline = self._pdev.readline()
+    
+    byteline = self._pdev.readline(20)
     logging.debug( ' READING ' + self.strName + ' line obtained with bytes ' )
     strLine = byteline.hex()
+    logging.debug(' strLine[0:4]= '+strLine[0:4]+', strCmdName[0:4]= '+strCmdName[0:4])
+    if strLine[0:4] != strCmdName[0:4]:
+      logging.fatal(' PUMP: Communication returned back a value that was different from the one sent... Aborting program')
+      raise ValueError("Command and response, do not match!")
+      
     logging.debug( ' READING ' + self.strName + ' line obtained ' + strLine )
     #print( ' READING current ' + self.strName + ' value: ' + strLine )
     logging.debug( ' READING current ' + self.strName + ' value: ' + strLine )

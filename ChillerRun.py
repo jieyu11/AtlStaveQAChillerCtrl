@@ -101,33 +101,41 @@ class clsChillerRun :
   """
 # ------------------------------------------------------------------------------
 # Function: Initialization -----------------------------------------------------
-  def funcInitialize(self, strDevNameList, bolRunPseudo,fltCurrentTemps) : 
+  def funcInitialize(self, strDevNameList, bolRunPseudo,fltCurrentTemps,intStatusCode) : 
     '''
     This is funcInitializeialized at the start of each running process. In each process the
     devices are stated in the funcInitializeialization and their configuration occurs. If 
     this is not done in the local process or done in a separate process the
     devices will not communicate!!!
     '''
+    if intStatusCode.value>StatusCode.OK: return
     self._strclassname = '< RUNNING >' 
+    try:
+      # configuration of how the devices are connected to the PC
+      self._istConnCfg = clsConfig( 'ChillerConnectConfig.txt', strDevNameList)
+
+
+      # pass the configuration of how the devices connection
+      # to the device handler
     
-    # configuration of how the devices are connected to the PC
-    self._istConnCfg = clsConfig( 'ChillerConnectConfig.txt', strDevNameList)
+      self._istDevHdl = clsDevicesHandler( self._istConnCfg, strDevNameList,bolRunPseudo )
+
+      # interpretation of machine readable commands into human readable commands
+      # and vice versa
+      self._istCommand = clsCommands( 'ChillerEquipmentCommands.txt', strDevNameList)
+
+      # configuration of the running routine 
+      self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', strDevNameList )
+
+      # last temperature value for liquid from thermocouple, needed for humidity sensor 
+      # if liquid temperature is lower than 0., humidity cannot be too high.
+      self._fltTempLiquid = 0.
+    except:
+      logging.fatal("FAILED TO INITIALIZE "+str(strDevNameList)+" Aborting! Please check connections!")
+      intStatusCode.value = StatusCode.DONE
 
 
-    # pass the configuration of how the devices connection
-    # to the device handler 
-    self._istDevHdl = clsDevicesHandler( self._istConnCfg, strDevNameList,bolRunPseudo )
 
-    # interpretation of machine readable commands into human readable commands
-    # and vice versa
-    self._istCommand = clsCommands( 'ChillerEquipmentCommands.txt', strDevNameList)
-
-    # configuration of the running routine 
-    self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', strDevNameList )
-
-    # last temperature value for liquid from thermocouple, needed for humidity sensor 
-    # if liquid temperature is lower than 0., humidity cannot be too high.
-    self._fltTempLiquid = 0.
 
 # ------------------------------------------------------------------------------
 # Function: sendcommand --------------------------------------------------------
@@ -197,7 +205,7 @@ class clsChillerRun :
     for cmd in cmdList:
       self.sendcommand(self, cmd, intStatusCode,fltCurrentTemps)
       if intStatusCode.value > StatusCode.OK: return
-      time.sleep(3) 
+      time.sleep(5) 
       self.funcResetDog(Process.RUNCHILL,intStatusArray)
 
     strPumpRunRPM = '22'
@@ -216,13 +224,14 @@ class clsChillerRun :
     logging.info(self._strclassname + " Pump change RPM to "+strPumpRunRPM)
 
 # Function: Chiller Idle -------------------------------------------------------
-  def ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps) :
+  def ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps,bolWaitInput=False) :
     '''
       Defines what the chiller does during an approximate 5 second wait time
     '''
     self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
     if intStatusCode.value > StatusCode.ERROR: return
     time.sleep(2.8)
+    if bolWaitInput==True: return
     self.funcResetDog(Process.RUNCHILL,intStatusArray)
 
 # Function: Humidity Wait ------------------------------------------------------
@@ -292,7 +301,7 @@ class clsChillerRun :
       logging.info("----------     The system is holding the current set Temp "+str(fltSetTemp)+" C")
       print("**********     USER:To Release, type release and hit enter")
       while intStatusArray[Process.RUNCHILL] == ProcessCode.HOLD and intStatusCode.value==StatusCode.OK:
-        self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
+        self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps,bolWaitInput)
 
       logging.info("----------     The system has been released.")
 
@@ -334,7 +343,7 @@ class clsChillerRun :
     strChiStopTemp = str(round(fltCurrentTemps[4]))  # Set to actual room Temperature...
 
 
-    strCommandDict = { 'cChangeSetpoint=' + strChiStopTemp : self._strclassname + ' Changing Chiller set point to ' + strChiStopTemp + ' C. ',
+    strCommandDict = { 'cChangeSetpoint=' + strChiStopTemp : self._strclassname + ' Changing Chiller set point to Room Temp: ' + strChiStopTemp + ' C. ',
                        'iRPM=' + strPumpStopRPM :            self._strclassname + ' Pump change RPM to '+strPumpStopRPM,
                        'iStop' :                             self._strclassname + ' Pump shutting down', 
                        'cStop' :                             self._strclassname + ' Chiller shutting down'}
@@ -343,7 +352,7 @@ class clsChillerRun :
     for strcommand, strlog in strCommandDict.items() : 
       
       # send the command to the corresponding device
-      if intStatusCode.value == StatusCode.FATAL and 'cChangeSetpoint' in strcommand or 'iRPM=' in strcommand:
+      if intStatusCode.value == StatusCode.FATAL and ('cChangeSetpoint' in strcommand or 'iRPM=' in strcommand):
         pass
       else:
         self.sendcommand(self, strcommand, intStatusCode,fltCurrentTemps) 
@@ -365,7 +374,9 @@ class clsChillerRun :
           bolWaitInput =False
           bolShutdown =True
           self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput,bolShutdown)
-          logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
+          logging.info("< RUNNING > Chiller reached room Temperature. Finishing Shutdown")
+          if intStatusCode.value == StatusCode.ERROR:
+            logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
           for i in range( int(intTimeCool/5) ):
             # check second by second the status of the system
             if intStatusCode.value != StatusCode.ERROR: break
@@ -438,7 +449,7 @@ class clsChillerRun :
     # Configures the processes handler so that it will log
     self.funcLoggingConfig(queue,intLoggingLevel)
     # Configures the connected devices and their corresponding ports
-    self.funcInitialize(self,["Chiller","Pump"], bolRunPseudo,fltCurrentTemps)
+    self.funcInitialize(self,["Chiller","Pump"], bolRunPseudo,fltCurrentTemps,intStatusCode)
     time.sleep(10)
 
     self.startChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps)
@@ -463,7 +474,7 @@ class clsChillerRun :
 
     self.funcLoggingConfig(queue,intLoggingLevel)
 
-    self.funcInitialize(self,["Thermocouple"], bolRunPseudo,fltCurrentTemps)
+    self.funcInitialize(self,["Thermocouple"], bolRunPseudo,fltCurrentTemps,intStatusCode)
     #time.sleep(20)
 
     # Default values
@@ -539,7 +550,7 @@ class clsChillerRun :
       recording the humidity inside the box
     """
     self.funcLoggingConfig(queue,intLoggingLevel) 
-    self.funcInitialize(self,["Humidity"], bolRunPseudo,fltCurrentTemps)
+    self.funcInitialize(self,["Humidity"], bolRunPseudo,fltCurrentTemps,intStatusCode)
     time.sleep(20)
 
     #Default values
