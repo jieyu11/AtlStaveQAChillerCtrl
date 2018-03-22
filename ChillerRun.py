@@ -143,13 +143,24 @@ class clsChillerRun :
     """
       function to send command to any of the devices
     """
-    try:
-      logging.debug(' Start to send user command ' + strUserCommand )
-      strdevname, strcmdname, strcmdpara = self._istCommand.getdevicecommand( strUserCommand )
-      logging.debug('sending command %s %s %s' % (strdevname, strcmdname, strcmdpara) )
-      self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara,fltCurrentTemps)
-    except:
-      intStatusCode.value = StatusCode.FATAL
+    logging.debug(' Start to send user command ' + strUserCommand )
+    strdevname, strcmdname, strcmdpara = self._istCommand.getdevicecommand( strUserCommand )
+    logging.debug('sending command %s %s %s' % (strdevname, strcmdname, strcmdpara) )
+    if strdevname == 'Chiller':
+      logging.info('<==========||==Sent Command to Chiller')
+    bolCommandSent = False
+    nAttempts = 0
+    while bolCommandSent == False: #Send Command Loop
+      try:  #Try to send a command if it fails or gives an error try again. After 3 fails it kills everything
+        self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara,fltCurrentTemps)
+        bolCommandSent = True 
+      except:
+        logging.info(' Send Command Failure! %s %s %s' % (strdevname, strcmdname, strcmdpara))
+        nAttempts += 1
+        time.sleep(1)
+      if nAttempts > 2:
+        intStatusCode.value = StatusCode.FATAL
+        bolCommandSent = True
 
 # -----------------------------------------------------------------------------
 # Listener Process ------------------------------------------------------------
@@ -231,6 +242,7 @@ class clsChillerRun :
     self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
     if intStatusCode.value > StatusCode.ERROR: return
     time.sleep(2.8)
+    #time.sleep(7.8)
     if bolWaitInput==True: return
     self.funcResetDog(Process.RUNCHILL,intStatusArray)
 
@@ -356,7 +368,8 @@ class clsChillerRun :
         pass
       else:
         self.sendcommand(self, strcommand, intStatusCode,fltCurrentTemps) 
-        time.sleep(3)
+        if intStatusCode.value >= StatusCode.FATAL:
+          time.sleep(3)
 
       # write information into logging file
         logging.info( strlog ) 
@@ -428,6 +441,7 @@ class clsChillerRun :
       for itemp in range(intNTemperature) :
         # changing the Chiller Temperature to a corresponding value 
         self.sendcommand(self, 'cChangeSetpoint=' + strTemperatureList[itemp],intStatusCode ,fltCurrentTemps)
+        time.sleep(3)
         logging.info(self._strclassname +  ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
         fltCurrentTemps[0] = float(strTemperatureList[itemp])
         self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput)

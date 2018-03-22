@@ -56,6 +56,7 @@ class clsDevicesHandler:
         if bolRunPseudo == True: 
           self.__dictDevices[ strDevName ] = clsPseudoChiller(strDevName)
         else:
+          #self.__dictDevices[ strDevName ] = clsPseudoChiller(strDevName)
           self.__dictDevices[ strDevName ] = clsChiller(strDevName, strPort, intBaud)
       elif strDevName == 'Pump':
         if bolRunPseudo == True: 

@@ -162,6 +162,8 @@ class clsPseudoChiller ( clsPseudoDevice ):
       Chiller: function of reading data
     """
     # chiller temperature -45 +55
+    #Mimics approximate Chiller Communication Time
+    time.sleep(2.2)
     self._value = random.random() * 100 - 45
 
   def last(self) :

@@ -250,34 +250,41 @@ class clsChiller ( clsDevice ):
       self._pdev.write( (strCmdName + '\r\n').encode() )
     else :
       logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName + " with parameter " + strCmdPara)
-      self._pdev.write( (strCmdName + strCmdPara + '\r\n').encode() )
-
+      self._pdev.write( (strCmdName + strCmdPara + '\r\n').encode() ) 
     byteline = self._pdev.readline()
     strinclines =  byteline.decode()
 
-
+     
     for index, strLine in enumerate(strinclines.splitlines()) :
-
-      if index ==0 and strLine[0:2] == str('OK') : 
-        logging.debug( ' Device ' + self.strName + ' status OK ')
+      logging.debug(' GOT '+ strLine)
+      if index ==0 and ('ok' in strLine or 'Ok' in strLine or 'OK' in strLine) : 
+        logging.debug( ' Device ' + self.strName + ' status :'+ strLine)
       elif index ==0 :
-        logging.fatal(' Device ' + self.strName + ' Response from Chiller: ' + strLine + '. FATAL! ' )
-        raise ValueError("A Problem Occured")
-      elif index == 1 :
-        strvarname = strLine[0:3]
+        logging.fatal(' Device ' + self.strName + ' Response from Chiller:' + strLine + '. FATAL! ' )
+        raise ValueError(" Garbled Response!!!! NOT GOOD")
+       
+      elif index == 1 and '!' in strLine:
+        strvarname = strLine[0:4]
         fltvarvalue = float( strLine[5:-1] )
-
-        if strvarname[0:1] != str('F') :
+        if strvarname[0:1] != str('F') and strvarname[0:1] != str('E') :
           logging.fatal( ' Device ' + self.strName + ' returned message: ' + strLine + ' not recognized. FATAL!' )
-          raise ValueError("A Problem Occured")
-        self._value = fltvarvalue
-        if fltvarvalue > 0:
-          logging.fatal( ' Device ' + self.strName + ' has given alarm: ' +str(fltvarvalue)) 
-          raise ValueError("ALARM IS GOING OFF")
-        #logging.info(str(fltvarvalue))
-        #logging.info( ' READING current ' + self.strName + ' value: %4.2f ' % fltvarvalue   )
+          raise ValueError(" Bad Response")
+        elif strvarname == str('E042'):
+          logging.warning(' Device ' + self.strName + ' has already been started. Ignoring...')
+        elif strvarname[0:1] == str('E'):
+          logging.fatal( ' Device ' + self.strName + ' returned error message: ' + strLine)
+          raise ValueError("Error Message Returned")
+    
+   
+        elif strvarname == str('F076') and fltvarvalue != 0:
+          logging.fatal( ' Device ' + self.strName + ' has given alarm: ' +fltvarvalue) 
+          raise ValueError("ALARM DETECTED")
+    
+        #self._value = ErrorCode
         return
-
+      else:
+        logging.info(" Device " +self.strName+' gave weird result: ' + strLine)
+        
   def last(self) :
     return self._value
 
@@ -351,7 +358,7 @@ class clsPump ( clsDevice ):
     strLine = byteline.hex()
     logging.debug(' strLine[0:4]= '+strLine[0:4]+', strCmdName[0:4]= '+strCmdName[0:4])
     if strLine[0:4] != strCmdName[0:4]:
-      logging.fatal(' PUMP: Communication returned back a value that was different from the one sent... Aborting program')
+      logging.fatal(' PUMP: Communication returned back a value that was different from the one sent... Aborting program') 
       raise ValueError("Command and response, do not match!")
       
     logging.debug( ' READING ' + self.strName + ' line obtained ' + strLine )

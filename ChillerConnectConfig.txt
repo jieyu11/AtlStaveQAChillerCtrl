@@ -17,7 +17,7 @@
 #  *** Configuration for SP Scientific RC211B0 recirculating chiller. ***
 [Chiller]
 #    Computer COM1 RS-232 port settings:  9600 baud, 8bit, 1 stop, no parity.
-PORT      =  COM1   #The RS-232 serial port on the computer.
+PORT      =  COM13  #The RS-232 serial port on the computer.
 BAUD      =  9600   #Set the baud rate to match the chiller.
 BITS      =  8      #Set the number of data length. 7 if parity used; 8 if no parity.
 PARITY    =  None   #Set the parity bit to match the chiller.
@@ -43,7 +43,7 @@ IT        =  7.5    # Integral time constant.
 #  *** Configuration for ESV751N02YXC booster pump inverter. ***
 [Pump]
 #    Computer USB port settings:  9600 baud, 8bit, 2 stop, no parity.
-PORT      =  COM10  #USB port connected to inverter.
+PORT      =  COM3   #USB port connected to inverter.
 BAUD      =  9600   #Set the baud rate to match the inverter.
 BITS      =  8      #Set the number of data bits. 7 or 8
 PARITY    =  None   #Set the parity bit to match the inverter.
@@ -53,7 +53,7 @@ TIMEOUT   =  0      #0: read immediately, None: wait forever, X: wait X s
 #  *** Configuration for Omega HH314A Humidity meter. ***
 [Humidity]
 #    Computer USB port settings:  9600 baud, 8bit, 1 stop, no parity.
-PORT      =  COM5   #USB port connected to humidity meter.
+PORT      =  COM11  #USB port connected to humidity meter.
 BAUD      =  9600   #Set the baud rate to match the meter.
 BITS      =  8      #Set the number of data bits.
 PARITY    =  None   #Set the parity bit to match meter.
