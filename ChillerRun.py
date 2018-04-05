@@ -283,6 +283,8 @@ class clsChillerRun :
     fltSetTempDwn = fltSetTemp - abs(fltWaitPercent*fltSetTemp)-2 
 
     #When our temp has falled within the boundaries this loop ends
+    intMaxWait = 120 # maximum number of minutes before the chiller auto ends the wait.
+    intCurrentWait = 0
     while fltStaveTemp > fltSetTempUp or fltStaveTemp < fltSetTempDwn:
       logging.info( "< RUNNING > Chiller waiting for "+str(intWaitTime)+ " min to get to set Temp. Range("  \
                     +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") Current Temp. = "+str(round(fltStaveTemp,2)))
@@ -291,9 +293,14 @@ class clsChillerRun :
         if intStatusArray[Process.HUMI_REC] == ProcessCode.ERROR1:
           self.humidityWait(self,intStatusCode,intStatusArray,fltCurrentTemps)
         self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
-
-
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
+      intCurrentWait +=1
+      if intCurrentWait >= intMaxWait:
+        logging.info( "< RUNNING > Chiller wait ended after "+ str(intCurrentWait)+" min. The system is at equillibrium.")
+        logging.info("< RUNNING > Stave reached Temperature " + str(round(fltStaveTemp,2)) + " C, within Range("  \
+                    +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") ")
+        return
+                
     logging.info("< RUNNING > Stave reached Temperature " + str(round(fltStaveTemp,2)) + " C, within Range("  \
                     +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") ")
 
@@ -352,8 +359,8 @@ class clsChillerRun :
     #
     
 
-    strChiStopTemp = str(round(fltCurrentTemps[4]))  # Set to actual room Temperature...
-
+    #strChiStopTemp = str(round(fltCurrentTemps[4]))  # Set to actual room Temperature...
+    strChiStopTemp = str(22)
 
     strCommandDict = { 'cChangeSetpoint=' + strChiStopTemp : self._strclassname + ' Changing Chiller set point to Room Temp: ' + strChiStopTemp + ' C. ',
                        'iRPM=' + strPumpStopRPM :            self._strclassname + ' Pump change RPM to '+strPumpStopRPM,
