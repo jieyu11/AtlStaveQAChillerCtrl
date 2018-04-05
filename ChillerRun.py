@@ -40,6 +40,8 @@ class StatusCode (IntEnum) :
     This defines is the value that is used for the global intStatusCode
     which will signal shutdown and type of shutdown
   """
+  PCHG    = -2 # -> need to change pump setting
+  TCHG    = -1 # -> need to change temperature setting
   OK      = 0  # -> all devices are fine
   ERROR   = 1  # -> Puts the system into a normal shutdown
   FATAL   = 2  # -> Turns off the Chiller and Pump right away
@@ -245,6 +247,7 @@ class clsChillerRun :
     #time.sleep(7.8)
     if bolWaitInput==True: return
     self.funcResetDog(Process.RUNCHILL,intStatusArray)
+    self.TempPumpCng(self,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput)
 
 # Function: Humidity Wait ------------------------------------------------------
   def humidityWait (self, intStatusCode, intStatusArray,fltCurrentTemps) :
@@ -357,7 +360,6 @@ class clsChillerRun :
     # Value: information for logging
     #
     
-
     #strChiStopTemp = str(round(fltCurrentTemps[4]))  # Set to actual room Temperature...
     strChiStopTemp = str(22)
 
@@ -402,7 +404,36 @@ class clsChillerRun :
             self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
 
     intStatusCode.value = StatusCode.DONE  
-        
+
+# Function: ChangeChillerTemp and Pipe Speed
+  def TempPumpCng(self,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput):
+    """
+      Allows the user to hold the running loop and use input from the user
+    """
+    if intStatusCode.value == StatusCode.TCHG: #Change the temperature
+      newTemp = fltCurrentTemps[5]
+      oldTemp = fltCurrentTemps[0]
+      fltCurrentTemps[0]=newTemp
+      self.sendcommand(self, 'cChangeSetpoint=' + str(newTemp),intStatusCode ,fltCurrentTemps)
+      intStatusCode.value = StatusCode.OK
+      time.sleep(3)
+      logging.info(self._strclassname +  ' Overwriting Chiller set point to ' + str(newTemp) + ' C.  ' )
+      bolWaitForInput = True
+      self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitForInput)
+      if intStatusCode.value <= StatusCode.OK:
+        self.sendcommand(self, 'cChangeSetpoint=' + str(oldTemp),intStatusCode ,fltCurrentTemps)
+        fltCurrentTemps[0] = oldTemp
+        logging.info(self._strclassname + 'Returning to our scheduled programming...')
+        return
+      else:
+        return
+    elif intStatusCode.value == StatusCode.PCHG: #Change the booster pump setting
+      newRPM = fltCurrentTemps[5]
+      newRPM = str(newRPM)
+      self.sendcommand(self,'iRPM='+newRPM,intStatusCode,fltCurrentTemps)
+      intStatusCode.value = StatusCode.OK
+
+
 
 # Function: run one loop of Chiller Pump ---------------------------------------
   def runChillerPumpLoops(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,bolWaitInput ,name = "Chiller") :

@@ -143,7 +143,7 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
     # Prints current temperature setting, temperature readings, and humidity reading
     elif val == 'temps':
       i = 0
-      strTempNames = ["TSet","T1  ","T2  ","T3  ","T4  "]
+      strTempNames = ["TSet","T1  ","T2  ","T3  ","T4  ","SVal"]
 
       #Temperature values
       #T1 = Stave Input Temperature
@@ -171,13 +171,43 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
     # Changes the process status and releases the held temperature
     elif val == 'release':
       intStatusArray[3]= ProcessCode.OK
+    # Prints status, progress and temps all at once!
+    elif val == 'info':
+      strGlbStatus=['OK   ','ERROR','FATAL','DONE ','PCHG','TCHG']
+      print("Status____________________")
+      print("     Global Status: "+strGlbStatus[intStatusCode.value]+"  Using PseudoData?: "+ str(bolRunPseudo))
+      i=0
+      strStatusVals=['OK','Sleep','DEAD (:,()','Held','Waiting for Humidity to decrease']
+      for p in procList:
+        if i == 4:
+          print("     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive()))            
+        else:  
+          print("     Process: "+str(p.name)+" PID: "+str(p.pid)+" ALIVE?: "+ str(p.is_alive())+" PStatus: "+strStatusVals[intStatusArray[i]])          
+        i+=1
+      print("Progress__________________")
+      if intStatusCode.value == StatusCode.OK:
+        print("     Loop Progress: "+str(fltProgress.value)+'%')
+      print("     Program Started: "+str(strStartTime ))
+      print("     Current Run Time: " + str(round((time.time()-strStartTimeVal)/60,2))+" mins")
+
+      if intStatusCode.value > StatusCode.OK:
+        print("     Loop Progress: Finished")
+      elif fltProgress.value > 0:
+        print("     Estimated loop time remaining... " + str(round((((time.time()-strStartTimeVal)/(0.0000001+fltProgress.value))/0.60)-((time.time()-strStartTimeVal)/60))) + ' mins')
+      print("Current_Temps_____________")
+      i = 0
+      strTempNames = ["TSet","T1  ","T2  ","T3  ","T4  ","SVal"]
+      for p in fltCurrentTemps:
+        print("     "+ strTempNames[i] +": "+ str(round(p,1))+" C")
+        i+=1
+      print("     Humi: "+str(round(fltCurrentHumidity.value,2))+" %")
+
     # Gives all Debug Commands
     elif val == 'dhelp':
       print("     __Debug_Commands__")
       print("     pkill    = Kills a process")
       print("     phold    = Puts a process into the hold state")
       print("     prelease = Releases a process from the hold state")
-
 
     # A Debugging command that kills a single specified process 
     elif val == 'pkill':
@@ -212,6 +242,37 @@ def procUserCommands(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity
         if processVal == p and i != 4:
           intStatusArray[i] = ProcessCode.OK
         i += 1
+    # A Command that changes the set temperature on the chiller
+    elif 'tset(' in val:
+      val = val.lstrip("tset(")
+      val = val.rstrip(')')
+      try:
+        val = int(val)
+        if val > 50 or val < -70:
+          print("Given value outside of bounds (-70,50)")
+        else:
+          fltCurrentTemps[5] = val
+          intStatusCode.value = StatusCode.TCHG
+          print("\nDANGER WILL ROBINSON: This will create a waiting function inside of the previous wait...")
+          print("\nWhen done with manual temp it will revert back to the previous setTemp...")
+          print("\nThis means if you change the temperature more than once, I suggest the shutdown command\n")
+          print("Set Temperature Changed to "+str(val)+"C")
+      except:
+        print("Wrong input value. Form is tchange(i), where i is an integer between -70 and 50")
+    elif 'pset(' in val:
+      val = val.lstrip('pset(')
+      val = val.rstrip(')')
+      try:
+        val = float(val)
+        if val < 0 or val > 30:
+          print("Given value outside of bounds (0,30)")
+        else:
+          fltCurrentTemps[5] = val
+          intStatusCode.value = StatusCode.PCHG
+          print("Booster Pump RPM Changed to "+str(val))
+      except:
+        print("Wrong input value. Form is pset(i), where i is a number between 0 and 30") 
+
 
 # Initial Setting Options -------------------------------------------------------
 def runPseudo():
@@ -294,8 +355,9 @@ def main( ) :
 
   fltProgress = Value('d',0)                # Beginning progress value  
   fltCurrentHumidity = Value('d',100)       # Beginning humidity value
-  fltCurrentTemps = Array('d',[20,20,20,20,20])  # Beginning Temperature values the fltCurrentTemps[0]   = SetTempValue,
+  fltCurrentTemps = Array('d',[20,20,20,20,20,0])  # Beginning Temperature values the fltCurrentTemps[0]   = SetTempValue,
                                                  #                                  fltCurrentTemps[1-4] = Temperature Recorder Temps
+                                                 #                                  fltCHG = new temp or rpm
 
   mpList = [] # Empty process list to be filled by each process
 
