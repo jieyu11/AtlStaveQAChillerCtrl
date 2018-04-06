@@ -149,7 +149,7 @@ class clsChillerRun :
     strdevname, strcmdname, strcmdpara = self._istCommand.getdevicecommand( strUserCommand )
     logging.debug('sending command %s %s %s' % (strdevname, strcmdname, strcmdpara) )
     if strdevname == 'Chiller':
-      logging.info('<==========||==Sent Command to Chiller')
+      logging.debug('<==========||==Sent Command to Chiller')
     bolCommandSent = False
     nAttempts = 0
     while bolCommandSent == False: #Send Command Loop
@@ -232,7 +232,7 @@ class clsChillerRun :
     # Unlock before sending commands to inverter (Pump)
     # do it once at a beginning of a run
     #
- 
+    if intStatusCode.value > StatusCode.OK: return 
     self.sendcommand(self, 'iRPM=' + strPumpRunRPM ,intStatusCode,fltCurrentTemps)
     logging.info(self._strclassname + " Pump change RPM to "+strPumpRunRPM)
 
@@ -241,13 +241,13 @@ class clsChillerRun :
     '''
       Defines what the chiller does during an approximate 5 second wait time
     '''
+    self.TempPumpCng(self,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput)
     self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
     if intStatusCode.value > StatusCode.ERROR: return
     time.sleep(2.8)
     #time.sleep(7.8)
     if bolWaitInput==True: return
     self.funcResetDog(Process.RUNCHILL,intStatusArray)
-    self.TempPumpCng(self,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput)
 
 # Function: Humidity Wait ------------------------------------------------------
   def humidityWait (self, intStatusCode, intStatusArray,fltCurrentTemps) :
@@ -267,7 +267,7 @@ class clsChillerRun :
     fltCurrentTemps[0] = intSetTemp
 
 # Function: Chiller Wait -------------------------------------------------------
-  def chillerWait (self, intTime, intStatusCode, intStatusArray,fltCurrentTemps,bolWaitInput=False,bolShutdown=False) :
+  def chillerWait (self, intTime, intStatusCode, intStatusArray,fltCurrentTemps,bolTUser=False,bolWaitInput=False,bolShutdown=False) :
     '''
       Checks the temperature at the stave core. If it has held its value for 
       more than 5 minutes it allows the system to continue.
@@ -295,6 +295,7 @@ class clsChillerRun :
         if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False: return
         if intStatusArray[Process.HUMI_REC] == ProcessCode.ERROR1:
           self.humidityWait(self,intStatusCode,intStatusArray,fltCurrentTemps)
+        if bolTUser == True and intStatusCode.value<StatusCode.OK: return #If we are already in a userset temp loop kill the old one
         self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
       intCurrentWait +=1
@@ -313,6 +314,7 @@ class clsChillerRun :
       logging.info("< RUNNING > Chiller waiting "+str(intEquiTime)+" min to reach equillibrium")
       for i in range( 12 * intEquiTime):
         if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False : return
+        if bolTUser == True and intStatusCode.value<StatusCode.OK: return # if we are already in a userset temp loop kill the old one
         self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
       fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
 
@@ -321,7 +323,8 @@ class clsChillerRun :
       intStatusArray[Process.RUNCHILL] = ProcessCode.HOLD # Makes the watchdog ignore this process as it waits for user input
       logging.info("----------     The system is holding the current set Temp "+str(fltSetTemp)+" C")
       print("**********     USER:To Release, type release and hit enter")
-      while intStatusArray[Process.RUNCHILL] == ProcessCode.HOLD and intStatusCode.value==StatusCode.OK:
+      while intStatusArray[Process.RUNCHILL] == ProcessCode.HOLD and intStatusCode.value<=StatusCode.OK:
+        if bolTUser == True and intStatusCode.value<StatusCode.OK: return #If we are already in a userset temp loop kill the old one
         self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps,bolWaitInput)
 
       logging.info("----------     The system has been released.")
@@ -392,9 +395,10 @@ class clsChillerRun :
             intTimeCool = 60 * int( self._istRunCfg.get( 'Chiller', 'StopCoolTime' ) ) # parameter in minutes
           except :
             pass
+          bolTUser = False
           bolWaitInput =False
           bolShutdown =True
-          self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput,bolShutdown)
+          self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps,bolTUser,bolWaitInput,bolShutdown)
           logging.info("< RUNNING > Chiller reached room Temperature. Finishing Shutdown")
           if intStatusCode.value == StatusCode.ERROR:
             logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
@@ -418,8 +422,9 @@ class clsChillerRun :
       intStatusCode.value = StatusCode.OK
       time.sleep(3)
       logging.info(self._strclassname +  ' Overwriting Chiller set point to ' + str(newTemp) + ' C.  ' )
+      bolTUser = True
       bolWaitForInput = True
-      self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitForInput)
+      self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolTUser,bolWaitForInput)
       if intStatusCode.value <= StatusCode.OK:
         self.sendcommand(self, 'cChangeSetpoint=' + str(oldTemp),intStatusCode ,fltCurrentTemps)
         fltCurrentTemps[0] = oldTemp
@@ -481,7 +486,8 @@ class clsChillerRun :
         time.sleep(3)
         logging.info(self._strclassname +  ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
         fltCurrentTemps[0] = float(strTemperatureList[itemp])
-        self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput)
+        bolTUser = False
+        self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolTUser,bolWaitInput)
         if intStatusCode.value == StatusCode.OK:
           logging.info(self._strclassname + ' Chiller at set temp. Waiting ' + strTimePeriodList[itemp] + ' minutes.')
         for i in range( 12 * int(strTimePeriodList[itemp])):
@@ -665,12 +671,12 @@ class clsChillerRun :
         time.sleep(1)
     intStatusArray[intProcess] = ProcessCode.OK
 
-  def strStatus(intStatusCode, intStatusArray,fltProgress,strStartTime,strStartTimeVal,procShortList):
+  def strStatus(intStatusCode, intStatusArray,fltProgress,fltCurrentHumidity,fltCurrentTemps,strStartTime,strStartTimeVal,procShortList):
     '''
     returns a string that is the current status of the system
     '''
     strMessage = []
-    strGlbStatus=['OK   ','ERROR','FATAL','DONE ']
+    strGlbStatus=['OK   ','ERROR','FATAL','DONE ','PCHG','TCHG']
     strStatusVals=['OK','Sleep','DEAD (:,()','Held','Waiting for Humidity to decrease'] 
 
     strMessage.append("     Program Started: "+str(strStartTime )+'\n')
@@ -685,10 +691,24 @@ class clsChillerRun :
       strMessage.append("     Process: "+str(p.name)+ ' Status: '+strStatusVals[intStatusArray[i]]+'\n')          
       i+=1
     strMessage.append("     Process: Watchdog Status: OK\n")
+
+    strMessage.append("     Current Temps")
+    i = 0
+    strTempNames = ["TSet","T1  ","T2  ","T3  ","T4  ","SVal"]
+    for p in fltCurrentTemps:
+      strMessage.append("     "+ strTempNames[i] +": "+ str(round(p,1))+" C")
+      i+=1
+    strMessage.append("     Humi: "+str(round(fltCurrentHumidity.value,2))+" %")
     strMessage = ''.join(strMessage)
     return strMessage
 
-  def procWatchDog (self,queue, intStatusCode, intStatusArray,fltProgress,bolSendEmail,intLoggingLevel,strStartTime,strStartTimeVal,procShortList):
+
+
+
+
+
+
+  def procWatchDog (self,queue, intStatusCode, intStatusArray,fltProgress,fltCurrentHumidity,fltCurrentTemps,bolSendEmail,intLoggingLevel,strStartTime,strStartTimeVal,procShortList):
     '''
       The Watchdog is the system protection protocol. It has 2 purposes,
       1. to keep track of errors
@@ -745,9 +765,9 @@ class clsChillerRun :
 
     def mail(strTitle,strMessage):#This sends an email out if bolSendEmail == true
       if bolSendEmail == True:  
-        print('Sending Message: '+strTitle+': '+strMessage+self.strStatus(intStatusCode,intStatusArray,fltProgress,strStartTime,strStartTimeVal,procShortList)) 
+        print('Sending Message: '+strTitle+': '+strMessage+self.strStatus(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity,fltCurrentTemps,strStartTime,strStartTimeVal,procShortList)) 
         for p in mailList: 
-          clsSendEmails.funcSendMail(clsSendEmails,p,strTitle,strMessage +self.strStatus(intStatusCode,intStatusArray,fltProgress,strStartTime,strStartTimeVal,procShortList))
+          clsSendEmails.funcSendMail(clsSendEmails,p,strTitle,strMessage +self.strStatus(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity,fltCurrentTemps,strStartTime,strStartTimeVal,procShortList))
           logging.info(strWatchDog+' Email sent to '+ p) 
           time.sleep(1)
 
