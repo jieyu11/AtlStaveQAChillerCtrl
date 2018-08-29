@@ -50,9 +50,9 @@ StopRPM : 10  # the RPM value when the pump stops after running
 
 #  *** Run parameters for the Omega HH314A humidity meter. ***
 [Humidity]
-StopUpperThreshold :  5 # in per cent, the upper limit of the humidity to STOP the system when running at low temperature
+StopUpperThreshold :  4 # in per cent, the upper limit of the humidity to STOP the system when running at low temperature
 WarnUpperThreshold :  2 # in per cent, the upper limit of the humidity to WARN the system when running at low temperature
-Frequency          : 10 # one data point every ? seconds
+Frequency          : 30 # one data point every ? seconds
 
 #  *** Run parameters for the Omega HH147U temperature logger meter. ***
 [Thermocouple]
@@ -62,3 +62,6 @@ LiquidLowerThreshold : -55 # in degree C, to keep the whole system safe, don't a
 Frequency            :  29 # one data point every ? seconds. Number in range [1, 29] for the current device
 DataPerRead          :  29 # number of data points every time user read the device, this number is none changeable
                            # it is defined by the thermocouple device. Only for reference
+# *** Arduino parameters
+[Arduino]
+

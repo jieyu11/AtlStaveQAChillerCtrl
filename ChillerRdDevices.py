@@ -1,11 +1,41 @@
-"""
-device class to read from / write to USB connected devices:
-  chiller
-  boost pump
-  thermocouple couple
-  humidity sensor
-  IR camcera
-"""
+'''
+  Program ChillerRdDevices.py
+  
+Description: ------------------------------------------------------------------
+  This file contains the class construct to read/write to the USB connected
+devices/equipment.  The list of devices/equipment:
+  
+  Flir A655sc IR camera;
+  FTS Systems RC211B0 recirculating cooler; 
+  Lenze ESV751N02YXC NEMA 4x inverter drive;
+  Omega HH314A Humidity/Temperature Meter;
+  Omega HH147U Data Logger Thermometer;
+  Arduino UNO Rev 3 shield.
+
+History: ----------------------------------------------------------------------
+  V1.0 - Oct-2017  First public release.
+  V1.4 - Jul-2018  Added code for the Arduino UNO to read the flow meter (Proteus
+          08004BN1) and control three actuators (Swagelok SS-62TS4-41DC).
+          Updated comments and modified screen messages to operator.
+Environment: ------------------------------------------------------------------
+  This program is written in Python 3.6.  Python can be freely downloaded from 
+http://www.python.org/.  This program has been tested on PCs running Windows 10.
+
+Author List: -------------------------------------------------------------------
+  R. McKay    Iowa State University, USA  mckay@iastate.edu
+  J. Yu       Iowa State University, USA  jieyu@iastate.edu
+  W. Heidorn  Iowa State University, USA  wheidorn@iastate.edu
+  
+Notes: -------------------------------------------------------------------------
+
+Dictionary of abbreviations: ---------------------------------------------------
+    bol - boolean
+  cls - class
+  dict - dictionary
+  ist - instance
+  str - string
+
+'''
 # function __init__: 
 #   initialize the class device
 #   should include Configure Instance as input???
@@ -21,11 +51,17 @@ device class to read from / write to USB connected devices:
 #   return the device instance
 #
 #
-import logging
-import ChillerRdConfig
-from ChillerDevices import *       #real devices classes: Chiller Pump Humidity Thermocouple
-from ChillerPseudoDevices import * #pseudo devices classes
 
+# Import Section --------------------------------------------------------------
+import logging                     # Flexible event logging functions/classes.
+
+#User defined classes
+import ChillerRdConfig             # Module with device configuration data.
+from ChillerDevices import *       #real devices classes: Chiller, Pump, Humidity, Thermocouple
+from ChillerPseudoDevices import * # Pseudo device classes for testing code.
+from ArduinoDevice import *        #The arduino process
+
+# -----------------------------------------------------------------------------
 class clsDevicesHandler:
   def __init__(self, istConfig, strDevNameList, bolRunPseudo):
     """
@@ -74,6 +110,11 @@ class clsDevicesHandler:
           self.__dictDevices[ strDevName ] = clsPseudoThermocouple(strDevName)
         else:
           self.__dictDevices[ strDevName ] = clsThermocouple(strDevName, strPort, intBaud)
+      elif strDevName == 'Arduino':
+        if bolRunPseudo == True:
+          self.__dictDevices[strDevName] = clsPseudoArduino(strDevName)
+        else:
+          self.__dictDevices[strDevName] = clsArduino(strDevName, strPort, intBaud)
       else:
         logging.error( ' Device name: ' + strDevName + ' not found! ')
 
@@ -82,7 +123,7 @@ class clsDevicesHandler:
       function to read from one of the devices through device name
       and command name
     """
-    self.__dictDevices[ strDevName ].read( strCmdName, strCmdPara,fltCurrentTemps)
+    self.__dictDevices[ strDevName ].read( strCmdName, strCmdPara,fltCurrentTemps) 
 
   def getdevice(self, strDevName) :
     """

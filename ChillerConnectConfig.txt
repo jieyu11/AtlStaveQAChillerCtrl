@@ -70,3 +70,13 @@ BITS      =  8      #Set the number of data bits.
 PARITY    =  None   #Set the parity bit to match meter.
 STOPBITS  =  1      #Choice 1
 TIMEOUT   =  0      #0: read immediately, None: wait forever, X: wait X s
+
+# *** Configuration for Arduino Uno ***
+[Arduino]
+#   Computer USB port settings:
+PORT      =  COM12   #USB port connected to temperature meter.
+BAUD      =  9600   #Set the baud rate to match the meter.
+BITS      =  8      #Set the number of data bits.
+PARITY    =  None   #Set the parity bit to match meter.
+STOPBITS  =  1      #Choice 1
+TIMEOUT   =  0      #0: read immediately, None: wait forever, X: wait X s

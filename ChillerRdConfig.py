@@ -1,6 +1,39 @@
-"""
-reading configuration file
-"""
+'''
+  Program ChillerRdConfig.py
+  
+Description: ------------------------------------------------------------------
+  This file contains the class construct to read the ASCII text file containing 
+the information of the configuration of devices/equipment used in the stave thermo
+evaluation.
+  
+  Flir A655sc IR camera;
+  FTS Systems RC211B0 recirculating cooler; 
+  Lenze ESV751N02YXC NEMA 4x inverter drive;
+  Omega HH314A Humidity/Temperature Meter;
+  Omega HH147U Data Logger Thermometer;
+  Arduino UNO Rev 3 shield.
+
+History: ----------------------------------------------------------------------
+  V1.0 - Oct-2017  First public release.
+  V1.4 - Jul-2018  Added code for the Arduino UNO to read the flow meter (Proteus
+           08004BN1) and control three actuators (Swagelok SS-62TS4-41DC).
+           Updated comments and modified screen messages to operator.
+Environment: ------------------------------------------------------------------
+  This program is written in Python 3.6.  Python can be freely downloaded from 
+http://www.python.org/.  This program has been tested on PCs running Windows 10.
+
+Author List: -------------------------------------------------------------------
+  R. McKay    Iowa State University, USA  mckay@iastate.edu
+  J. Yu       Iowa State University, USA  jieyu@iastate.edu
+  W. Heidorn  Iowa State University, USA  wheidorn@iastate.edu
+  
+Notes: -------------------------------------------------------------------------
+
+Dictionary of abbreviations: ---------------------------------------------------
+  cls - class
+  str - string
+'''
+
 # function __init__ ( strconfname ): 
 #   initialize the class clsConfig
 #   using config file name
@@ -16,12 +49,18 @@ reading configuration file
 #   return the list of keys for this section (device)
 #
 
+# Import section --------------------------------------------------------------
 import configparser
 import logging
+
+# Class section ---------------------------------------------------------------
 class clsConfig:
   def __init__(self, strconfname, strdevnamelist):
     """
-      function of initialization
+      Acquire the devices configuration parameters from the text file containing all
+      the parameters for each device to run as desired.
+      The configuration file consists of sections, led by a [section] header and 
+      followed by name: value or name=value.  Lines beginning with '#' are ignored.
     """
     self.strname = strconfname
     # allow_no_value=True: key having no value allowed

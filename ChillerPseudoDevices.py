@@ -1,11 +1,43 @@
-"""
-pseudo device class to mimic the real device and react to commands
-  chiller
-  boost pump
-  thermocouple couple
-  humidity sensor
-  IR camcera
-"""
+'''
+  Program ChillerPseudoDevices.py
+  
+Description: ------------------------------------------------------------------
+  This file contains the class constructs to mimic the real device used in the 
+stave thermo evaluations.  Its purpose is to provide a means to check code 
+during development.  The mimic devices are:
+  
+  Flir A655sc IR camera;
+  FTS Systems RC211B0 recirculating cooler; 
+  Lenze ESV751N02YXC NEMA 4x inverter drive;
+  Omega HH314A Humidity/Temperature Meter;
+  Omega HH147U Data Logger Thermometer;
+  Arduino UNO Rev 3 shield.
+
+History: ----------------------------------------------------------------------
+  V1.0 - Oct-2017  First public release.
+  V1.4 - Jul-2018  Added code for the Arduino UNO to read the flow meter (Proteus
+           08004BN1) and control three actuators (Swagelok SS-62TS4-41DC).
+           Updated comments and modified screen messages to operator.
+Environment: ------------------------------------------------------------------
+  This program is written in Python 3.6.  Python can be freely downloaded from 
+http://www.python.org/.  This program has been tested on PCs running Windows 10.
+
+Author List: -------------------------------------------------------------------
+  R. McKay    Iowa State University, USA  mckay@iastate.edu
+  J. Yu       Iowa State University, USA  jieyu@iastate.edu
+  W. Heidorn  Iowa State University, USA  wheidorn@iastate.edu
+  
+Notes: -------------------------------------------------------------------------
+
+Dictionary of abbreviations: ---------------------------------------------------
+  cls - class
+  cmd - command
+   flt - float
+   int - integer
+  str - string
+
+'''
+# Import section ---------------------------------------------------------------
 
 import time
 import logging
@@ -22,9 +54,9 @@ class clsPseudoDevice:
 
     logging.info( ' Initialization Pseudo Device, name ' + strname )
     self._strname = strname
-
     self._strclassname = ' < Device > '
 
+# ----------------------------
   def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       function of reading device data
@@ -34,6 +66,7 @@ class clsPseudoDevice:
     else:
       logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self._strname + " with parameter " + strcmdpara )
 
+# ----------------------------
   def last(self) :
     """
       function to get the last read out value(s)
@@ -55,6 +88,7 @@ class clsPseudoHumidity ( clsPseudoDevice ):
     # keep the last read out value, initialized with 100%
     self._value = 100
 
+# ----------------------------
   def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       Humidity: function of reading data
@@ -64,6 +98,7 @@ class clsPseudoHumidity ( clsPseudoDevice ):
     # random in 0. - 1., return in percentage
     self._value = random.random() * 5
 
+# ----------------------------
   def last(self) : 
     return self._value
 
@@ -86,6 +121,7 @@ class clsPseudoThermocouple ( clsPseudoDevice ):
     # initialized with 0. refer as [i][j]
     self._temperaturedata =  [[0 for x in range( self._intDataPoint )] for y in range( self._intDataLines )]
 
+# ----------------------------
   def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       Thermocouple: function of reading data
@@ -94,10 +130,10 @@ class clsPseudoThermocouple ( clsPseudoDevice ):
     time.sleep( 25 )
 
     #Starting Temperature Conditions
-    TinOld = fltCurrentTemps[1]
-    ToutOld = fltCurrentTemps[2]
-    TboxOld = fltCurrentTemps[3]
-    TroomOld = fltCurrentTemps[4]
+    TinOld = fltCurrentTemps[2]
+    ToutOld = fltCurrentTemps[3]
+    TboxOld = fltCurrentTemps[4]
+    TroomOld = fltCurrentTemps[5]
     fltOldSetValue = fltCurrentTemps[0]
 
     #Create a new second of temp data
@@ -129,6 +165,7 @@ class clsPseudoThermocouple ( clsPseudoDevice ):
       TroomOld = Troom
       fltOldSetValue = fltCurrentTemps[0]
 
+# ----------------------------
   def last(self, lineIdx = 28) :
     """
       function to read the last obtained result
@@ -143,7 +180,8 @@ class clsPseudoThermocouple ( clsPseudoDevice ):
       lineIdx = self._intDataLines - 1
 
     return tuple( self._temperaturedata[lineIdx] )
-
+# ------------------------------------------------------------------------------
+# Class Chiller (inherited device) ---------------------------------------------
 class clsPseudoChiller ( clsPseudoDevice ):
   def __init__(self, strname):
     """
@@ -156,7 +194,7 @@ class clsPseudoChiller ( clsPseudoDevice ):
     # keep the last read out value
     self._value = 0
 
-
+# ----------------------------
   def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       Chiller: function of reading data
@@ -164,11 +202,17 @@ class clsPseudoChiller ( clsPseudoDevice ):
     # chiller temperature -45 +55
     #Mimics approximate Chiller Communication Time
     time.sleep(2.2)
-    self._value = random.random() * 100 - 45
+    TSet = fltCurrentTemps[0]
+    TIn = fltCurrentTemps[2]
 
+    self._value = TSet*.3 + TIn*.7
+
+# ----------------------------
   def last(self) :
     return self._value
 
+# ------------------------------------------------------------------------------
+# Class Pump (inherited device) ------------------------------------------------
 class clsPseudoPump ( clsPseudoDevice ):
   def __init__(self, strname):
     """
@@ -177,7 +221,7 @@ class clsPseudoPump ( clsPseudoDevice ):
     super().__init__(strname)
     self._value = 0
 
-
+# ----------------------------
   def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
     """
       Pump: function of reading data
@@ -187,5 +231,6 @@ class clsPseudoPump ( clsPseudoDevice ):
     else:
       self._value = 22
 
+# ----------------------------
   def last(self) : 
     return self._value

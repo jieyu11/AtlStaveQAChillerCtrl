@@ -26,7 +26,7 @@ c : Chiller
 i : Pump
 h : Humidity
 t : Thermocouple 
-
+a : Arduino
 
 #  *** Commands for the SP Scientific RC211B0 recirculating chiller. ***
 [Chiller] 
@@ -60,7 +60,7 @@ SetRefrig : REFRSW=    # Set the state of the refrigeration unit.
 Fluid? : FLUID?        # Query the defined fluid type. 
 SetFluidHi : FSPANH    # Set the high temperature limit for fluid type.
 SetFluidLo : FSPANL    # Set the low temperature limit for fluid type.
-
+GetResTemp? : PTLOC?   # Reads the fluid temperature in the reservoir?
 
 #  *** Commands for the booster pump ESV751N02YXC inverter (via ESVZAR0 RS-485 module.) ***
 #   Note the commands are Hex values, not text.  Every command must end with the correct
@@ -74,8 +74,9 @@ UnlockParameter : 010600310000D805 # Unlock parameter button. Do once if need to
 LockDrive : 01060001000259CB       # Lock Start, Stop button.
 Start : 010600010008D9CC           # Start the booster pump.
 Stop : 010600010004D9C9            # Stop the booster pump.
-RPM? : 010300190001EE58            # Check the current RPM
-RPM : 0106002C                     # Set the RPM of the booster pump:
+RPS? : 010300190001EE58            # Check the current RPM
+RPS : 0106002C                     # Set the RPM of the booster pump:
+Status? : 010300170001340E         # Check if the pump is on
 
 # example: 0106002Crrrryyzz  (rrrr = RPM value*10 (max = 0x445C), zzyy = CRC
 # value, then swap the first and last two digits)
@@ -94,4 +95,9 @@ Read : A  # Read humidity sensor.
 #  *** Commands for the Omega HH147U temperature logger meter. ***
 [Thermocouple]
 Read : AAB40110AB  # Read the four thermocouple sensors.
+
+[Arduino]
+RPS? : F      # Reads RPM voltage
+Toggle : V    # Toggles the valve states
+Status : S    # Checks status of the actuator valves
 

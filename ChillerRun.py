@@ -23,6 +23,7 @@ import time
 import sys
 from enum import IntEnum
 from functools import total_ordering
+from datetime import timedelta 
 
 # User Macros
 from ChillerRdDevices import * #Allows reading from devices
@@ -40,20 +41,47 @@ class StatusCode (IntEnum) :
     This defines is the value that is used for the global intStatusCode
     which will signal shutdown and type of shutdown
   """
-  PCHG    = -2 # -> need to change pump setting
-  TCHG    = -1 # -> need to change temperature setting
-  OK      = 0  # -> all devices are fine
-  ERROR   = 1  # -> Puts the system into a normal shutdown
-  FATAL   = 2  # -> Turns off the Chiller and Pump right away
-  DONE    = 3  # -> Says that both the Chiller and Pump are both off, Kill all the processes
-#  def __lt__(self, other):
-#    if self.__class__ is other.__class__:
-#      return self.value < other.value
-#    return NotImplemented
-# ------------------------------------------------------------------------------
-# Class ProcessCode -------------------------------------------------------------
+  OK        = 0  # -> all devices are fine
+  SHUTDOWN  = 1  # -> User puts the system into a normal shutdown
+  ERROR     = 2  # -> Puts the system into a normal shutdown
+  ABORT     = 3  # -> User turns off the Chiller and Pump right away
+  FATAL     = 4  # -> Turns off the Chiller and Pump right away
+  KILLED    = 5  # -> User kills program and all processes
+  DONE      = 6  # -> Says that both the Chiller and Pump are both off, Kill all the processes
 
-class ProcessCode (IntEnum) :
+# ------------------------------------------------------------------------------
+# Class SysSettings ------------------------------------------------------------
+
+class SysSettings (IntEnum) :
+  """
+    This defines the first value of the global intSettings, which keeps track
+    of the individual processes.
+  """
+  START     = 0 # System is starting
+  ROUTINE   = 1 # System is running a routine
+  HWAIT     = 2 # System is waiting for the humidity to decrease
+  WAIT      = 3 # System is waiting for user commands
+  SHUTDOWN  = 4 # System is shutting down
+  DONE      = 5 # System is done shutting off
+
+# ------------------------------------------------------------------------------
+# Class SysSettings ------------------------------------------------------------
+
+class Setting (IntEnum) :
+  """
+    This defines the values of the intSettings Array
+  """
+  STATE       = 0 
+  TCHANGE     = 1 
+  PCHANGE     = 2 
+  TOGGLE    = 3 
+
+
+
+# ------------------------------------------------------------------------------
+# Class ProcessState -----------------------------------------------------------
+
+class ProcessState (IntEnum) :
   """
     This defines the values of the global intStatusArray, which keeps track
     of the individual processes.
@@ -66,7 +94,10 @@ class ProcessCode (IntEnum) :
   HOLD      = 3  # -> a process is currently waiting to be reactivated
   ERROR1    = 4  # -> process has a specific error currently used for frost warnings
 
-# Class ProcessCode -------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
+# Class ProcessList ------------------------------------------------------------
 
 class Process (IntEnum) :
   """
@@ -75,8 +106,27 @@ class Process (IntEnum) :
   LISTENER  = 0
   TEMP_REC  = 1
   HUMI_REC  = 2
-  RUNCHILL  = 3
-  WATCHDOG  = 4
+  CHILLER   = 3
+  PUMP      = 4
+  ARDUINO   = 5
+  ROUTINE   = 6
+  WATCHDOG  = 7
+
+# Delta Time -------------------------------------------------------------------
+def lstDeltaTime(fltElapsedTime):
+  """
+  Compute the given elapsedTime in units of days, hours and minutes. The input
+  is assumed to be in units of seconds.
+  timedelta returns days and seconds.
+  divmod returns [quotient, remainder].
+  This function returns list of [day, hour, minute].
+  """
+  lstTime = timedelta(seconds=fltElapsedTime)       # Instance of timedelta.
+  intDays = lstTime.days                            # Pull out number of days.
+  intHours, fltMins = divmod(lstTime.seconds,3600)  # Get [hours, seconds]
+  fltMins = fltMins/60
+
+  return [intDays, intHours, fltMins]
 
 # ------------------------------------------------------------------------------
 # Class ChillerRun -------------------------------------------------------------
@@ -103,45 +153,43 @@ class clsChillerRun :
   """
 # ------------------------------------------------------------------------------
 # Function: Initialization -----------------------------------------------------
-  def funcInitialize(self, strDevNameList, bolRunPseudo,fltCurrentTemps,intStatusCode) : 
+  def funcInitialize(self, strDevNameList, bolRunPseudo,intStatusCode) : 
     '''
     This is funcInitializeialized at the start of each running process. In each process the
     devices are stated in the funcInitializeialization and their configuration occurs. If 
     this is not done in the local process or done in a separate process the
     devices will not communicate!!!
     '''
-    if intStatusCode.value>StatusCode.OK: return
+    if intStatusCode.value > StatusCode.OK: return
     self._strclassname = '< RUNNING >' 
     try:
-      # configuration of how the devices are connected to the PC
-      self._istConnCfg = clsConfig( 'ChillerConnectConfig.txt', strDevNameList)
+      if strDevNameList != ['Routine']:
 
+        # configuration of how the devices are connected to the PC
+        self._istConnCfg = clsConfig( 'ChillerConnectConfig.txt', strDevNameList)
 
-      # pass the configuration of how the devices connection
-      # to the device handler
-    
-      self._istDevHdl = clsDevicesHandler( self._istConnCfg, strDevNameList,bolRunPseudo )
+        # pass the configuration of how the devices connection
+        # to the device handler
 
-      # interpretation of machine readable commands into human readable commands
-      # and vice versa
-      self._istCommand = clsCommands( 'ChillerEquipmentCommands.txt', strDevNameList)
+        self._istDevHdl = clsDevicesHandler( self._istConnCfg, strDevNameList,bolRunPseudo )
 
-      # configuration of the running routine 
-      self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', strDevNameList )
+        # interpretation of machine readable commands into human readable commands
+        # and vice versa
+        self._istCommand = clsCommands( 'ChillerEquipmentCommands.txt', strDevNameList)
 
-      # last temperature value for liquid from thermocouple, needed for humidity sensor 
-      # if liquid temperature is lower than 0., humidity cannot be too high.
-      self._fltTempLiquid = 0.
+        # configuration of the running routine 
+        self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', strDevNameList )
+
+      else:
+        self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', ['Chiller'] )
+
     except:
       logging.fatal("FAILED TO INITIALIZE "+str(strDevNameList)+" Aborting! Please check connections!")
       intStatusCode.value = StatusCode.DONE
 
-
-
-
 # ------------------------------------------------------------------------------
 # Function: sendcommand --------------------------------------------------------
-  def sendcommand(self, strUserCommand,intStatusCode,fltCurrentTemps) :
+  def sendcommand(self, strUserCommand,intStatusCode,fltTemps) :
     """
       function to send command to any of the devices
     """
@@ -154,8 +202,9 @@ class clsChillerRun :
     nAttempts = 0
     while bolCommandSent == False: #Send Command Loop
       try:  #Try to send a command if it fails or gives an error try again. After 3 fails it kills everything
-        self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara,fltCurrentTemps)
-        bolCommandSent = True 
+        self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara,fltTemps)
+        bolCommandSent = True
+
       except:
         logging.info(' Send Command Failure! %s %s %s' % (strdevname, strcmdname, strcmdpara))
         nAttempts += 1
@@ -185,13 +234,16 @@ class clsChillerRun :
           break
         logger = logging.getLogger(record.name) #This finds the name of the log in the queue
         logger.handle(record) # Handles the log, printing it to the strLogName File
-        print(record.asctime + " "+ record.levelname+" "+record.message) # Prints the log to the screen
+
+        if "TempReadings" in record.message: #Ignores reading out full temp log
+          continue
+        else:
+          print(record.asctime + " "+ record.levelname+" "+record.message) # Prints the log to the screen
       except Exception:
         import sys, traceback
         print('Whoops! Problem:', file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
 
-# -----------------------------------------------------------------------------
 # Function: process_configure -------------------------------------------------
   def funcLoggingConfig(queue,intLoggingLevel) :
     """
@@ -203,345 +255,24 @@ class clsChillerRun :
     root.setLevel(intLoggingLevel) # This sets what level is logged in each process
 
 # ------------------------------------------------------------------------------
-# Function: Start Chiller Pump -------------------------------------------------
-  def startChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps) :
-    """
-      Procedure to start the Chiller and Pump:
-      * Start Chiller 
-      * Unlock Pump(Drive, Parameter)
-      * Start Pump
-      * Set Pump RPM to 22
-    """
-    logging.info(self._strclassname + " Starting Chiller and Pump") 
-    
-    cmdList = ['cStart','iUnlockDrive','iUnlockParameter','iRPM=10','iStart']
-    for cmd in cmdList:
-      self.sendcommand(self, cmd, intStatusCode,fltCurrentTemps)
-      if intStatusCode.value > StatusCode.OK: return
-      time.sleep(5) 
-      self.funcResetDog(Process.RUNCHILL,intStatusArray)
-
-    strPumpRunRPM = '22'
-    try:
-      strPumpRunRPM = self._istRunCfg.get( 'Pump', 'RunRPM' )
-    except:
-      logging.warning("Sections: Pump, Key: RunRPM, not present in configure: %s" % \
-                     self._istRunCfg.name() )
-
-    #
-    # Unlock before sending commands to inverter (Pump)
-    # do it once at a beginning of a run
-    #
-    if intStatusCode.value > StatusCode.OK: return 
-    self.sendcommand(self, 'iRPM=' + strPumpRunRPM ,intStatusCode,fltCurrentTemps)
-    logging.info(self._strclassname + " Pump change RPM to "+strPumpRunRPM)
-
-# Function: Chiller Idle -------------------------------------------------------
-  def ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps,bolWaitInput=False) :
-    '''
-      Defines what the chiller does during an approximate 5 second wait time
-    '''
-    self.TempPumpCng(self,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput)
-    self.sendcommand(self, "cAlarmStat?", intStatusCode,fltCurrentTemps)
-    if intStatusCode.value > StatusCode.ERROR: return
-    time.sleep(2.8)
-    #time.sleep(7.8)
-    if bolWaitInput==True: return
-    self.funcResetDog(Process.RUNCHILL,intStatusArray)
-
-# Function: Humidity Wait ------------------------------------------------------
-  def humidityWait (self, intStatusCode, intStatusArray,fltCurrentTemps) :
-    '''
-      Changes the set temperature to 10 C in the event that the stave was set to a low
-      temperature but it has too high humidity.
-    '''
-    intSetTemp = fltCurrentTemps[0]
-    intWaitTemp = 10       
-    self.sendcommand(self, 'cChangeSetpoint=' + str(intWaitTemp),intStatusCode ,fltCurrentTemps)
-    fltCurrentTemps[0] = intWaitTemp
-    logging.warning("< RUNNING > Due to high humidity, TSet changed to " + str(intWaitTemp)+' C')
-    while intStatusCode.value == StatusCode.OK and intStatusArray[Process.HUMI_REC] == ProcessCode.ERROR1:
-      self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
-    logging.warning("< RUNNING > Stave humidity is now low enough for cold settings. Reverting back to original set temp "+str(intSetTemp)+' C')
-    self.sendcommand(self, 'cChangeSetpoint=' + str(intSetTemp),intStatusCode ,fltCurrentTemps)
-    fltCurrentTemps[0] = intSetTemp
-
-# Function: Chiller Wait -------------------------------------------------------
-  def chillerWait (self, intTime, intStatusCode, intStatusArray,fltCurrentTemps,bolTUser=False,bolWaitInput=False,bolShutdown=False) :
-    '''
-      Checks the temperature at the stave core. If it has held its value for 
-      more than 5 minutes it allows the system to continue.
-    '''
-    intWaitTime = intTime # temperature change wait time in minutes
-    intEquiTime = 1       # temperature equillibrium wait time in minutes
-
-    fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2  #Get the current average stave temp from inlet and outlet
-    fltSetTemp   = fltCurrentTemps[0]                         #Get the set Temperature
-
-    #Calculate what percent of the actual temp will be based upon the set temp
-    #Effectively it is around 30% at -55 and around 1-2% at 20 and 50
-    fltWaitPercent = (3.72622 -0.13636925*fltSetTemp+0.00207182*fltSetTemp*fltSetTemp)/fltSetTemp
-    #Calculate Boundaries of the set temp
-    fltSetTempUp = fltSetTemp + abs(fltWaitPercent*fltSetTemp)+2 
-    fltSetTempDwn = fltSetTemp - abs(fltWaitPercent*fltSetTemp)-2 
-
-    #When our temp has falled within the boundaries this loop ends
-    intMaxWait = 90 # maximum number of minutes before the chiller auto ends the wait.
-    intCurrentWait = 0
-    while fltStaveTemp > fltSetTempUp or fltStaveTemp < fltSetTempDwn:
-      logging.info( "< RUNNING > Chiller waiting for "+str(intWaitTime)+ " min to get to set Temp. Range("  \
-                    +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") Current Temp. = "+str(round(fltStaveTemp,2)))
-      for i in range( 12 * intWaitTime):
-        if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False: return
-        if intStatusArray[Process.HUMI_REC] == ProcessCode.ERROR1:
-          self.humidityWait(self,intStatusCode,intStatusArray,fltCurrentTemps)
-        if bolTUser == True and intStatusCode.value<StatusCode.OK: return #If we are already in a userset temp loop kill the old one
-        self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
-      fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
-      intCurrentWait +=1
-      if intCurrentWait >= intMaxWait:
-        logging.info( "< RUNNING > Chiller wait ended after "+ str(intCurrentWait)+" min. The system is at equillibrium.")
-        logging.info("< RUNNING > Stave reached Temperature " + str(round(fltStaveTemp,2)) + " C, within Range("+str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") ")
-        return
-                
-    logging.info("< RUNNING > Stave reached Temperature " + str(round(fltStaveTemp,2)) + " C, within Range("  \
-                    +str(round(fltSetTempUp,2))+","+str(round(fltSetTempDwn,2))+") ")
-
-    #Check to see if the temperature has stabilized before ending the wait
-    fltStaveTempOld = fltStaveTemp+2
-    while fltStaveTemp > fltStaveTempOld+1 or fltStaveTemp <fltStaveTempOld -1:
-      fltStaveTempOld = fltStaveTemp 
-      logging.info("< RUNNING > Chiller waiting "+str(intEquiTime)+" min to reach equillibrium")
-      for i in range( 12 * intEquiTime):
-        if intStatusCode.value > StatusCode.ERROR or intStatusCode.value == StatusCode.ERROR and bolShutdown==False : return
-        if bolTUser == True and intStatusCode.value<StatusCode.OK: return # if we are already in a userset temp loop kill the old one
-        self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
-      fltStaveTemp = (fltCurrentTemps[1]+fltCurrentTemps[2])/2
-
-    #Check to see if the code is to wait for a user's input
-    if bolWaitInput == True and intStatusCode.value==StatusCode.OK:
-      intStatusArray[Process.RUNCHILL] = ProcessCode.HOLD # Makes the watchdog ignore this process as it waits for user input
-      logging.info("----------     The system is holding the current set Temp "+str(fltSetTemp)+" C")
-      print("**********     USER:To Release, type release and hit enter")
-      while intStatusArray[Process.RUNCHILL] == ProcessCode.HOLD and intStatusCode.value<=StatusCode.OK:
-        if bolTUser == True and intStatusCode.value<StatusCode.OK: return #If we are already in a userset temp loop kill the old one
-        self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps,bolWaitInput)
-
-      logging.info("----------     The system has been released.")
-
-
-# Function: Shut down Chiller Pump ---------------------------------------------
-  def shutdownChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps) :
-    """
-      procedure to shutdown the Chiller and Pump:
-      * set Chiller Temperature to the stop value
-         - for non emergency shutdown (status <=2) wait for Chiller to cool down
-         - raw RPM value needed for this step
-      * set Pump RPM to the stop value
-      * shutdown Pump 
-         - shutdown Pump first
-      * shutdown Chiller
-         - shutdown Chiller in the end
-
-      Shutdown conditions:
-      1) Emergency (status = ERROR) causes normal shutdown
-      2) Major Emergency (status = FATAL) does not allow for cooldown
-      3) End of run (status = DONE) signals to all processes that the program is done
-    """
-    #
-    strPumpStopRPM = '10' #RPM
-    strChiStopTemp = '20' #Degree C
-    try:
-      strPumpStopRPM = self._istRunCfg.get( 'Pump', 'StopRPM' )
-      strChiStopTemp = self._istRunCfg.get( 'Chiller', 'StopTemperature' )
-    except:
-      logging.warning("Sections: Pump, Chiller, Key: Stop RPM, StopTemperature not present in configure: "+self._istRunCfg.name()+" Using Default values(10RPM, 20C)") 
-
-    #
-    # Dictionary to keep the shutdown procedure
-    # Key: Chiller and Pump commands 
-    # Value: information for logging
-    #
-    
-    #strChiStopTemp = str(round(fltCurrentTemps[4]))  # Set to actual room Temperature...
-    strChiStopTemp = str(22)
-
-    strCommandDict = { 'cChangeSetpoint=' + strChiStopTemp : self._strclassname + ' Changing Chiller set point to Room Temp: ' + strChiStopTemp + ' C. ',
-                       'iRPM=' + strPumpStopRPM :            self._strclassname + ' Pump change RPM to '+strPumpStopRPM,
-                       'iStop' :                             self._strclassname + ' Pump shutting down', 
-                       'cStop' :                             self._strclassname + ' Chiller shutting down'}
-
-    intCounter = 0
-    for strcommand, strlog in strCommandDict.items() : 
-      
-      # send the command to the corresponding device
-      if intStatusCode.value == StatusCode.FATAL and ('cChangeSetpoint' in strcommand or 'iRPM=' in strcommand):
-        pass
-      else:
-        self.sendcommand(self, strcommand, intStatusCode,fltCurrentTemps) 
-        if intStatusCode.value >= StatusCode.FATAL:
-          time.sleep(3)
-
-      # write information into logging file
-        logging.info( strlog ) 
-        if 'cChangeSetpoint' in strcommand:
-          fltCurrentTemps[0] = float(strChiStopTemp)
-
-      # for non emergency shutdown, first cool down the chiller before shutting down the whole system 
-        if intStatusCode.value < StatusCode.FATAL and 'cChangeSetpoint' in strcommand :
-          intTimeCool = 600 # in seconds
-          fltCurrentTemps[0] = float(strChiStopTemp) 
-          try : 
-            intTimeCool = 60 * int( self._istRunCfg.get( 'Chiller', 'StopCoolTime' ) ) # parameter in minutes
-          except :
-            pass
-          bolTUser = False
-          bolWaitInput =False
-          bolShutdown =True
-          self.chillerWait(self,intTimeCool//60,intStatusCode,intStatusArray,fltCurrentTemps,bolTUser,bolWaitInput,bolShutdown)
-          logging.info("< RUNNING > Chiller reached room Temperature. Finishing Shutdown")
-          if intStatusCode.value == StatusCode.ERROR:
-            logging.info( self._strclassname + ' Chiller cooling down for {:3d}'.format( intTimeCool // 60 ) + ' minutes ' )  
-          for i in range( int(intTimeCool/5) ):
-            # check second by second the status of the system
-            if intStatusCode.value != StatusCode.ERROR: break
-            self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
-
-    intStatusCode.value = StatusCode.DONE  
-
-# Function: ChangeChillerTemp and Pipe Speed
-  def TempPumpCng(self,intStatusCode,intStatusArray,fltCurrentTemps,bolWaitInput):
-    """
-      Allows the user to hold the running loop and use input from the user
-    """
-    if intStatusCode.value == StatusCode.TCHG: #Change the temperature
-      newTemp = fltCurrentTemps[5]
-      oldTemp = fltCurrentTemps[0]
-      fltCurrentTemps[0]=newTemp
-      self.sendcommand(self, 'cChangeSetpoint=' + str(newTemp),intStatusCode ,fltCurrentTemps)
-      intStatusCode.value = StatusCode.OK
-      time.sleep(3)
-      logging.info(self._strclassname +  ' Overwriting Chiller set point to ' + str(newTemp) + ' C.  ' )
-      bolTUser = True
-      bolWaitForInput = True
-      self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolTUser,bolWaitForInput)
-      if intStatusCode.value <= StatusCode.OK:
-        self.sendcommand(self, 'cChangeSetpoint=' + str(oldTemp),intStatusCode ,fltCurrentTemps)
-        fltCurrentTemps[0] = oldTemp
-        logging.info(self._strclassname + 'Returning to our scheduled programming...')
-        return
-      else:
-        return
-    elif intStatusCode.value == StatusCode.PCHG: #Change the booster pump setting
-      newRPM = fltCurrentTemps[5]
-      newRPM = str(newRPM)
-      self.sendcommand(self,'iRPM='+newRPM,intStatusCode,fltCurrentTemps)
-      intStatusCode.value = StatusCode.OK
-
-
-
-# Function: run one loop of Chiller Pump ---------------------------------------
-  def runChillerPumpLoops(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,bolWaitInput ,name = "Chiller") :
-    """ 
-      main routine of every loop running the Chiller and Boost Pump
-      set the name parameter if not running the default "Chiller"
-    """
-    
-    intChiNLoops  = 0
-    try:
-      intChiNLoops  = int( self._istRunCfg.get( name, 'NLoops' ) )
-    except:
-      logging.fatal("Sections: "+ name + ", Key: NLoops not present in configure: %s" % \
-                     self._istRunCfg.name() )
-      intStatusCode.value = StatusCode.FATAL
-    logging.info("---------- Section: "+ name + ", number of loops " + str(intChiNLoops) )    
-
-
-    # don't run any loop if it is set to 0 or negative
-    if intChiNLoops <= 0: return
-
-    try:
-      # split values by ',' and then remove the white spaces.
-      strTemperatureList = [ x.strip(' ') for x in self._istRunCfg.get( name, 'Temperagures' ).split(',') ]
-      strTimePeriodList  = [ x.strip(' ') for x in self._istRunCfg.get( name, 'TimePeriod'   ).split(',') ]
-    except:
-      intStatusCode.value = StatusCode.FATAL
-      logging.fatal("Section: "+ name + ", Key: Temperagures, TimePeriod not present in configure: %s" % \
-                     self._istRunCfg.name() )
-      return
-
-    intNTemperature = len( strTemperatureList )
-    fltProgressStep = float(100 / (intChiNLoops * intNTemperature))
-    if intNTemperature != len(strTimePeriodList) :
-      logging.warning( ' Length of temperature list ' + str(intNTemperature) + ' != ' + \
-                       ' Length of time period list ' + str( len( strTimePeriodList ) ) + '. Set to Min.' )
-      if len( strTimePeriodList ) < intNTemperature :
-        intNTemperature = len( strTimePeriodList )
-    
-    for iloop in range(intChiNLoops) :
-      logging.info('----------     Chiller, Pump running loop no. ' + str(iloop+1)+'/'+str(intChiNLoops) )
-      for itemp in range(intNTemperature) :
-        # changing the Chiller Temperature to a corresponding value 
-        self.sendcommand(self, 'cChangeSetpoint=' + strTemperatureList[itemp],intStatusCode ,fltCurrentTemps)
-        time.sleep(3)
-        logging.info(self._strclassname +  ' Changing Chiller set point to ' + strTemperatureList[itemp] + ' C. ' )
-        fltCurrentTemps[0] = float(strTemperatureList[itemp])
-        bolTUser = False
-        self.chillerWait(self,1,intStatusCode,intStatusArray,fltCurrentTemps,bolTUser,bolWaitInput)
-        if intStatusCode.value == StatusCode.OK:
-          logging.info(self._strclassname + ' Chiller at set temp. Waiting ' + strTimePeriodList[itemp] + ' minutes.')
-        for i in range( 12 * int(strTimePeriodList[itemp])):
-          if intStatusCode.value > StatusCode.OK: return
-          self.ChillerIdle(self, intStatusCode, intStatusArray, fltCurrentTemps)
-
-        fltProgress.value += fltProgressStep
-    logging.info('----------     Chiller, Pump looping finished!' )
- 
-# Function: run Chiller Pump ---------------------------------------------------
-  def runChillerPump(self,queue,intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,intLoggingLevel,bolWaitInput,bolRunPseudo) :
-    """
-      main routine to run Chiller Pump with user set loops
-     """
-
-    # Configures the processes handler so that it will log
-    self.funcLoggingConfig(queue,intLoggingLevel)
-    # Configures the connected devices and their corresponding ports
-    self.funcInitialize(self,["Chiller","Pump"], bolRunPseudo,fltCurrentTemps,intStatusCode)
-    time.sleep(10)
-
-    self.startChillerPump (self,queue,intStatusCode,intStatusArray,fltCurrentTemps)
-
-    for strsectionname in [ name for name in self._istRunCfg.sections() if "Chiller" in name ]:
-      self.runChillerPumpLoops(self,queue, intStatusCode,intStatusArray,fltProgress,fltCurrentTemps,bolWaitInput, name = strsectionname) 
-      # constantly check the status of the system 
-      if intStatusCode.value > StatusCode.OK: 
-        logging.warning("----------     Shutdown has been Triggered, Beginning Shutdown") 
-        self.shutdownChillerPump(self,queue,intStatusCode,intStatusArray,fltCurrentTemps)
-        return
-
-    logging.info(self._strclassname + " Chiller Loops Have Finished, Beginning Shutdown") 
-    self.shutdownChillerPump(self,queue,intStatusCode,intStatusArray,fltCurrentTemps)
-    
-# ------------------------------------------------------------------------------
-# Function: record temperature -------------------------------------------------
-  def recordTemperature(self,queue,intStatusCode,intStatusArray,fltCurrentTemps,intLoggingLevel,bolRunPseudo) :
+# Temperature Process ----------------------------------------------------------
+  def recordTemperature(self,queue,intStatusCode,intStatusArray,fltTemps,intLoggingLevel,bolRunPseudo) :
     """
       recording temperatures of ambient, box, inlet, outlet from the thermocouples
     """
-
+    print ("STARTING THERMO")
+    #Connect to logger and initialize
     self.funcLoggingConfig(queue,intLoggingLevel)
-
-    self.funcInitialize(self,["Thermocouple"], bolRunPseudo,fltCurrentTemps,intStatusCode)
-    #time.sleep(20)
+    self.funcInitialize(self,["Thermocouple"], bolRunPseudo,intStatusCode)
 
     # Default values
-    fltTUpperLimit =  60 # upper limit in C for liquid temperature
+    fltTUpperLimit =  50 # upper limit in C for liquid temperature
     fltTLowerLimit = -55 # lower limit in C for liquid temperature
     intFrequency   =  29 # one data point per ? seconds
     intDataPerRead =  29 # number of data points every time user read, ~1 data point / 1 second
     intIdxTLiquid  =   0 # index of the thermocouple connected to liquid temperature, 0 - 3
 
-    try:  
+    try:  #Try to load values from the run config file
       fltTUpperLimit = float( self._istRunCfg.get( 'Thermocouple', 'LiquidUpperThreshold' ) )
       fltTLowerLimit = float( self._istRunCfg.get( 'Thermocouple', 'LiquidLowerThreshold' ) )
       intFrequency   = int  ( self._istRunCfg.get( 'Thermocouple', 'Frequency' ) )
@@ -558,7 +289,7 @@ class clsChillerRun :
 
       if intIdxTLiquid < 0 and intIdxTLiquid > 3 :
         logging.fatal( self._strclassname + ' IdxLiquidTemperature '+ intIdxTLiquid + ' not in [0, 3]. Check! ')
-        intStatusCode.value = StatusCode.FATAL
+        intStatusCode.value = StatusCode.ABORT
         return
     except:
       logging.warning( ' Section: Thermocouple, Key: LiquidUpperThreshold, LiquidLowerThreshold, Frequency not found! Using defaults!')
@@ -566,23 +297,23 @@ class clsChillerRun :
     istThermocouple = self._istDevHdl.getdevice( 'Thermocouple' )
     if istThermocouple is None:
       logging.fatal( self._strclassname + ' Thermocouple not found in device list! ')
-      intStatusCode.value = StatusCode.FATAL
+      intStatusCode.value >= StatusCode.ABORT
       return
 
     # keep reading data until the process is killed or 
-    # kill the process if the global status is more serious than an ERROR
-    while ( intStatusCode.value < StatusCode.DONE) : 
+    # kill the process if the global status is more serious than an SHUTDOWN
+    while ( intStatusCode.value < StatusCode.KILLED) : 
       self.funcResetDog(Process.TEMP_REC,intStatusArray)
       # read thermocouple data, every read takes ~25 seconds for 29 data points
-      self.sendcommand(self,'tRead',intStatusCode,fltCurrentTemps)
+      self.sendcommand(self,'tRead',intStatusCode,fltTemps)
 
       for idata in range( intDataPerRead ) :
           fltTempTup = list( istThermocouple.last( idata) ) 
-          logging.info( '<DATA> Thermocouple T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f} '.format( \
+          logging.info( '<DATA> TempReadings T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f} '.format( \
                         fltTempTup[0], fltTempTup[1], fltTempTup[2], fltTempTup[3]) ) 
 
           for i in range(4): #Adds the current temperatures into the global temps
-            fltCurrentTemps[i+1]=fltTempTup[i]
+            fltTemps[i+2]=fltTempTup[i]
           
           # keep on track the liquid temperature read out
           # needed by humidity function 
@@ -597,23 +328,27 @@ class clsChillerRun :
             logging.error( self._strclassname + ' liquid temperature '+ self._fltTempLiquid +
                            ' > upper limit ' + fltTUpperLimit + '! Return! ') 
             intStatusCode.value = StatusCode.ERROR
+      logging.info('<DATA> Temps TSet: {:5.2f}, TRes: {:5.2f}, T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f} '.format( \
+                    fltTemps[0],fltTemps[1],fltTemps[2],fltTemps[3],fltTemps[4],fltTemps[5]) )
     # after finishing running
     logging.info( self._strclassname + ' Temperature finished recording. ' )
 
 # ------------------------------------------------------------------------------
-# Function: record humidity ----------------------------------------------------
-  def recordHumidity(self,queue,intStatusCode,intStatusArray,fltCurrentHumidity,fltCurrentTemps,intLoggingLevel,bolRunPseudo) :
+# Humidity Process -------------------------------------------------------------
+  def recordHumidity(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps,fltHumidity,intLoggingLevel,bolRunPseudo) :
     """
       recording the humidity inside the box
     """
+    # Connect to logger and initialize
     self.funcLoggingConfig(queue,intLoggingLevel) 
-    self.funcInitialize(self,["Humidity"], bolRunPseudo,fltCurrentTemps,intStatusCode)
-    time.sleep(20)
+    self.funcInitialize(self,["Humidity"], bolRunPseudo,intStatusCode)
+
+    time.sleep(20) # Wait
 
     #Default values
     fltStopUpperLimit = 5.0 # upper limit in % for humidity to stop the system
     fltWarnUpperLimit = 2.0 # upper limit in % for humidity to warn the system
-    intFrequency      =  10 # one data point per ? seconds
+    intFrequency      =  30 # one data point per ? seconds
 
     try: 
       fltStopUpperLimit = float( self._istRunCfg.get( 'Humidity', 'StopUpperThreshold' ) )
@@ -631,88 +366,351 @@ class clsChillerRun :
       intStatusCode.value = StatusCode.FATAL
       return
   
-    while(intStatusCode.value < StatusCode.DONE ) :
-      if intStatusArray[Process.HUMI_REC] < ProcessCode.DEAD:
-        self.funcResetDog(Process.HUMI_REC,intStatusArray)
-      elif fltCurrentHumidity.value < fltStopUpperLimit:
-        self.funcResetDog(Process.HUMI_REC,intStatusArray)
+    oldSetting = [0,0] #Initial conditions
+
+    while(intStatusCode.value < StatusCode.KILLED ) :
+      self.funcResetDog(Process.HUMI_REC,intStatusArray)
+
+      self.sendcommand(self, 'hRead',intStatusCode,fltTemps)
+      fltHum = istHumidity.last()
+      #TODO Make this also read out temperature data...
  
-      self.sendcommand(self, 'hRead',intStatusCode,fltCurrentTemps )
-      fltHumidity = istHumidity.last() 
-      logging.info( '<DATA> Humidity {:4.1f}'.format( fltHumidity ) )
+      logging.info( '<DATA> Humidity {:4.1f}'.format( fltHum ) )
 
-      fltCurrentHumidity.value = fltHumidity #Sets global humidity
+      fltHumidity.value = fltHum #Sets global humidity
 
-      if fltCurrentTemps[0] < 0. and intStatusCode.value==StatusCode.OK:
-        if fltHumidity > fltStopUpperLimit : 
-          logging.warning( self._strclassname + ' Chiller temp setting '+ str( fltCurrentTemps[0] ) +
-                           ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltStopUpperLimit ) + 
-                           ' %! System will wait for humidity to decrease!')
-          intStatusArray[Process.HUMI_REC] = ProcessCode.ERROR1 
-        elif fltHumidity > fltWarnUpperLimit : 
-          logging.warning( self._strclassname + ' Chiller temp setting '+ str( fltCurrentTemps[0] ) +
-                           ' box humidity ' + str( round(fltHumidity,1) ) + ' % > ' + str( fltWarnUpperLimit ) + ' %') 
-
+      # Warn or Set the system into a humidity wait due to high humidty
+      if fltTemps[0] < 0. and intSettings[Setting.STATE] != SysSettings.HWAIT:
+        if fltHumidity.value > fltStopUpperLimit: 
+          logging.warning( self._strclassname + ' Chiller temp setting '+ str( fltTemps[0] ) +
+                           ' box humidity ' + str( round(fltHumidity.value,1) ) + ' % > ' + str( fltStopUpperLimit ) + 
+                           ' %! System will wait for humidity to decrease!') 
+          oldSettings = [intSettings[Setting.STATE],fltTemps[0]]
+          intSettings[Setting.STATE]= SysSettings.HWAIT #This puts the system into a humidity wait
+          fltTemps[0] = 0.0 
+          intSettings[Setting.TCHANGE] = True
+        elif fltHumidity.value > fltWarnUpperLimit : 
+          logging.warning( self._strclassname + ' Chiller temp setting '+ str( fltTemps[0] ) +
+                           ' box humidity ' + str( round(fltHumidity.value,1) ) + ' % > ' + str( fltWarnUpperLimit ) + ' %') 
+      # If we are not meeting the over humidity statement go back to normal
+      elif intSettings[Setting.STATE] == SysSettings.HWAIT and intStatusCode.value == StatusCode.OK:
+        intSettings[Setting.STATE] = oldSettings[0]
+        fltTemps[0] = oldSettings[1]
+        intSettings[Setting.TCHANGE] = True
 
       time.sleep( intFrequency - 1 )
     logging.info( self._strclassname + ' Humidity finished recording. ' )
 
 # ------------------------------------------------------------------------------
-# Function: Watchdog -----------------------------------------------------------
-  def funcResetDog (intProcess,intStatusArray): #Puts the WatchDog into OK, which stops an error
-    '''
-    Each process has an assigned spot in the intStatusArray. Every 30 seconds 
-    the array is checked by the watchdog. The watchdog then sets all processes 
-    spots to ProcessCode.SLEEP. In each process loop there is funcResetDog that
-    sets the spot to ProcessCode.OK. 
-    '''
-    if intStatusArray[intProcess] == ProcessCode.HOLD:
-      while intStatusArray[intProcess] == ProcessCode.HOLD and intProcess != Process.RUNCHILL :
-        time.sleep(1)
-    intStatusArray[intProcess] = ProcessCode.OK
+# Chiller Process --------------------------------------------------------------
+  def chillerControl(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps,intLoggingLevel,bolRunPseudo) :
+    """
+      control the chiller
+    """
+    # Connect to logger and initialize
+    self.funcLoggingConfig(queue,intLoggingLevel) 
+    self.funcInitialize(self,["Chiller"], bolRunPseudo,intStatusCode)
+    istTemp = self._istDevHdl.getdevice( 'Chiller' )
 
-  def strStatus(intStatusCode, intStatusArray,fltProgress,fltCurrentHumidity,fltCurrentTemps,strStartTime,strStartTimeVal,procShortList):
-    '''
-    returns a string that is the current status of the system
-    '''
-    strMessage = []
-    strGlbStatus=['OK   ','ERROR','FATAL','DONE ','PCHG','TCHG']
-    strStatusVals=['OK','Sleep','DEAD (:,()','Held','Waiting for Humidity to decrease'] 
+    #Turn on Chiller
+    self.sendcommand(self, 'cStart',intStatusCode,fltTemps)
+    logging.info ( self._strclassname + ' Chiller started. ')
 
-    strMessage.append("     Program Started: "+str(strStartTime )+'\n')
-    strMessage.append("     Run Time       : " + str(round((time.time()-strStartTimeVal)/60,2))+" mins\n")
-    strMessage.append("     Loop Progress  : "+str(fltProgress.value)+'%\n\n')
-    strMessage.append("     Global Status  : "+strGlbStatus[intStatusCode.value]+'\n') 
+    #Chiller idles 
+    while intStatusCode.value < StatusCode.ABORT:
+      #Check To Exit Loop
+      if intSettings[Setting.STATE] > SysSettings.SHUTDOWN:
+        break
+      #Change Temperature
+      elif intSettings[Setting.TCHANGE] == True:
+        NewTemp = fltTemps[0]
+        self.sendcommand(self, 'cChangeSetpoint=' + str(NewTemp), intStatusCode,fltTemps)
+        intSettings[Setting.TCHANGE] = False
+      #Do the idle thing(Check Chiller, and Read Temperature)
+      else:
+        self.sendcommand(self, 'cAlarmStat?', intStatusCode,fltTemps)
 
-    print(intStatusArray[0])
-    i=0
-    for p in procShortList:
-      if i == 4: break
-      strMessage.append("     Process: "+str(p.name)+ ' Status: '+strStatusVals[intStatusArray[i]]+'\n')          
-      i+=1
-    strMessage.append("     Process: Watchdog Status: OK\n")
+        if intStatusCode.value > StatusCode.ERROR: break
+        self.sendcommand(self, 'cGetResTemp?',intStatusCode,fltTemps)
+        ReservoirTemp = istTemp.last()
+        fltTemps[1] = ReservoirTemp  #TODO Needs to be tested...
 
-    strMessage.append("     Current Temps")
-    i = 0
-    strTempNames = ["TSet","T1  ","T2  ","T3  ","T4  ","SVal"]
-    for p in fltCurrentTemps:
-      strMessage.append("     "+ strTempNames[i] +": "+ str(round(p,1))+" C")
-      i+=1
-    strMessage.append("     Humi: "+str(round(fltCurrentHumidity.value,2))+" %")
-    strMessage = ''.join(strMessage)
-    return strMessage
+        if intStatusCode.value > StatusCode.ERROR: break
+        time.sleep(2.8) #This may not be necessary
+        self.funcResetDog(Process.CHILLER,intStatusArray)
+
+    #Shutdown chiller
+    self.sendcommand(self,'cStop',intStatusCode,fltTemps)
+    logging.info( self._strclassname + ' Chiller finished shutdown. ') 
+
+# ------------------------------------------------------------------------------
+# Pump Process -----------------------------------------------------------------
+  def pumpControl(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps,fltRPS,intLoggingLevel,bolRunPseudo) :
+    """
+    control the pump  
+    """
+    # Connect to logger and initialize
+    self.funcLoggingConfig(queue,intLoggingLevel) 
+    self.funcInitialize(self,["Pump"], bolRunPseudo,intStatusCode)
+
+    #Turn on Pump
+    StartComs = ['iUnlockDrive','iUnlockParameter','iRPS=10','iStart']
+    for Command in StartComs:
+      self.sendcommand(self, Command,intStatusCode,fltTemps)
+      time.sleep(1)
+    logging.info ( self._strclassname + ' Pump started. ')
+
+    #Chiller idles 
+    while intStatusCode.value < StatusCode.ABORT:
+      #Check To Exit Loop
+      if intSettings[Setting.STATE] > SysSettings.SHUTDOWN: break
+      #Change RPS
+      elif intSettings[Setting.PCHANGE] == True:
+        NewRPS = fltRPS[0]
+        self.sendcommand(self, 'iRPS=' + str(NewRPS), intStatusCode,fltTemps)
+        intSettings[Setting.PCHANGE] = False
+      #Do the idle thing(Check Pump, Wait)
+      else:
+        self.sendcommand(self, 'iStatus?', intStatusCode,fltTemps)
+        if intStatusCode.value > StatusCode.ERROR: break
+        time.sleep(5) #This may not be necessary
+        self.funcResetDog(Process.PUMP,intStatusArray)
+
+    #Shutdown pump
+    self.sendcommand(self,'iStop',intStatusCode,fltTemps)
+    logging.info( self._strclassname + ' Pump finished shutdown. ')
 
 
 
+# ------------------------------------------------------------------------------
+# Arduino Process --------------------------------------------------------------
+  def procArduino(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps,fltRPS,intLoggingLevel,bolRunPseudo) :
+    """
+    control the arduino  
+    """
+
+    # Connect to arduino UNO and initialize
+    self.funcLoggingConfig(queue, intLoggingLevel)
+    self.funcInitialize(self,["Arduino"],bolRunPseudo,intStatusCode)
+
+    istArduino = self._istDevHdl.getdevice( 'Arduino' )
+    while intStatusCode.value < StatusCode.KILLED:
+      #Change valve state
+      if intSettings[Setting.TOGGLE] == True:
+        logging.info( self._strclassname + 'Toggling valve state.')
+        self.sendcommand(self, 'aToggle',intStatusCode,fltTemps)
+        intSettings[Setting.TOGGLE] = False
+
+      #Do the idle thing (Read current RPS, Wait)
+      else:
+        self.sendcommand(self, 'aRPS?',intStatusCode,fltTemps)
+        fltRps = istArduino.last()
+        self.funcResetDog(Process.ARDUINO,intStatusArray) 
+        logging.info( '<DATA> Arduino FlowRate = {:4.3f} l/min'.format( fltRps ) )
+        fltRPS[1] = float(fltRps)
+        time.sleep(5)
+
+    logging.info( self._strClassName + ' Arduino finished shutdown. ') 
+
+# ------------------------------------------------------------------------------
+# Routine Process --------------------------------------------------------------
+  def procRoutine(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps, \
+                  fltHumidity,fltRPS,fltProgress,intLoggingLevel,bolWaitInput,bolRoutine,bolRunPseudo,fltStartTime):
+    """
+      main routine to run Chiller Pump with user set loops
+    """
+
+    # Configures the processes handler so that it will log
+    self.funcLoggingConfig(queue,intLoggingLevel)
+    self.funcInitialize(self,["Routine"],bolRunPseudo,intStatusCode)
 
 
+    #Start Up Check
+    if intSettings[Setting.STATE] == SysSettings.HWAIT: #Check humidity state and wait if necessary
+      while intStatusCode.value == StatusCode.OK and intSettings[Setting.STATE] == SysSettings.WAIT:
+        time.sleep(5)
+        self.funcResetDog(Process.ROUTINE,intStatusArray)
+        if intSettings[Setting.TCHANGE] == True and bolWaitInput == True:
+          self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput)
+
+    if bolRoutine == True:
+
+      time.sleep(5) #Wait to start the routine after everything has been started
+      #Load routine ------------
+      intSettings[Setting.STATE] =SysSettings.ROUTINE
+      #Get number of loops
+      intChiNLoops  = 0
+      name = 'Chiller'
+      try:
+        intChiNLoops  = abs(int( self._istRunCfg.get( name, 'NLoops' ) ) )
+      except:
+        logging.fatal("Sections: "+ name + ", Key: NLoops not present in configure: %s" % \
+                       self._istRunCfg.name())
+        intStatusCode.value = StatusCode.FATAL
+        return
+      logging.info("---------- Section: "+ name + ", number of loops " + str(intChiNLoops) )    
+
+      #Get Temperature and Time Period Lists
+      try:
+        # split values by ',' and then remove the white spaces.
+        strTemperatureList = [ x.strip(' ') for x in self._istRunCfg.get( name, 'Temperagures' ).split(',') ]
+        strTimePeriodList  = [ x.strip(' ') for x in self._istRunCfg.get( name, 'TimePeriod'   ).split(',') ]
+      except:
+        logging.fatal("Section: "+ name + ", Key: Temperagures, TimePeriod not present in configure: %s" % \
+                       self._istRunCfg.name() )
+        intStatusCode.value = StatusCode.FATAL 
+        return
+
+      #Check List Lengths and cut to minimum
+      intNTemperature = len( strTemperatureList )
+      if intNTemperature != len(strTimePeriodList) :
+        logging.warning( ' Length of temperature list ' + str(intNTemperature) + ' != ' + \
+                         ' Length of time period list ' + str( len( strTimePeriodList ) ) + '. Set to Minimum' )
+        if len( strTimePeriodList ) < intNTemperature :
+          intNTemperature = len( strTimePeriodList )
+
+      #Begin Looping
+      fltProgressStep = float(100 / (intChiNLoops * intNTemperature))   
+      for iloop in range(intChiNLoops) :
+        logging.info('----------     Begin routine loop no. ' + str(iloop+1)+'/'+str(intChiNLoops) )
+        for itemp in range(intNTemperature) :
+          # changing the Chiller Temperature to a corresponding value
+          fltTemps[0] = float(strTemperatureList[itemp]) #Change Set Temperature
+          intSettings[Setting.TCHANGE] = True
+          fltRPS[0] = self.funcPumpSetting(1,strTemperatureList[itemp]) #Change Pump Setting so its at 1 l/min
+          intSettings[Setting.PCHANGE] = True
+ 
+          # Begin waiting to reach the set temperature        
+          self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput) 
+          self.funcResetDog(Process.ROUTINE,intStatusArray)
+
+          # Wait at set temp
+          if intStatusCode.value == StatusCode.OK and bolWaitInput == False:
+            logging.info(self._strclassname + ' Chiller at set temp. Waiting ' + strTimePeriodList[itemp] + ' minutes.')
+            for i in range( 12 * int(strTimePeriodList[itemp])):
+              if intStatusCode.value > StatusCode.OK: break
+              time.sleep(5) 
+              self.funcResetDog(Process.ROUTINE,intStatusArray)
+          fltProgress.value += fltProgressStep
+      logging.info('----------     Chiller, Pump looping finished!' )
+
+    # Wait ---------------------
+    else:
+      intSettings[Setting.STATE] = SysSettings.WAIT
+      fltProgress.value = 100
+    while intStatusCode.value == StatusCode.OK and \
+         (intSettings[Setting.STATE] == SysSettings.WAIT or intSettings[Setting.STATE] == SysSettings.HWAIT):
+      time.sleep(5)
+      self.funcResetDog(Process.ROUTINE,intStatusArray)
+      if intSettings[Setting.TCHANGE] == True and bolWaitInput == True:
+        self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput)
+
+    #Shutdown
+    intSettings[Setting.STATE] = SysSettings.SHUTDOWN
+    if intStatusCode.value < StatusCode.ABORT:
+      fltTemps[0] = 22 #Room Temperature
+      self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput)
+    fltRPS[0] = 10 #Slow RPSs
+    time.sleep(5)
+
+    #Tell All processes its time to shut off
+    intStatusCode.value = StatusCode.DONE
+    intSettings[Setting.STATE] = SysSettings.DONE
+    logging.info('< RUNNING > Routine process finished.')
 
 
-  def procWatchDog (self,queue, intStatusCode, intStatusArray,fltProgress,fltCurrentHumidity,fltCurrentTemps,bolSendEmail,intLoggingLevel,strStartTime,strStartTimeVal,procShortList):
+# Function: Stave Temp ---------------------------------------------------------
+  def funcStaveTemp (fltTemps):
+    """
+    gives the temperature of the stave
+    """ 
+    fltStaveTemp = (fltTemps[2]+fltTemps[3])/2 #This reads temperature from the thermocouples
+    if fltStaveTemp == 20:
+      fltStaveTemp = fltTemps[1] #if nothing has updated use the temperature read by the chiller
+    return fltStaveTemp
+
+# Function: Temp Wait ----------------------------------------------------------
+  def funcTempWait (self,intTime, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput):
+    """
+    This checks to see when the fluid temperature gets to the set temperature
+    """
+
+    Tancient = -99999. #Oldest Temp Change
+    Told = -999. #Next oldest Temp Change
+
+    while True: #This loop stays until it is broken
+      intWaitTime = intTime #Time to wait between checks to reach temperature should be >30seconds
+      
+      fltSetTemp = fltTemps[0]
+      Tslope = 1000
+      TslopeLevel = 0.5 # C/min
+
+      intMaxWait = 90 # max time to wait before chiller ends the wait.      
+      intCurrentWait = 0
+
+      while abs(Tslope) > TslopeLevel:
+        fltStaveTemp = self.funcStaveTemp(fltTemps)
+        Tmean = (Tancient+Told+fltStaveTemp)/3
+        Tslope = ((Tmean-fltStaveTemp)+(Tancient-Tmean))/2
+        logging.info( "< RUNNING > Routine waiting for abs.temp. slope to flatten. Current: "\
+                      +str(round(abs(Tslope),2))+' > '+str(TslopeLevel)+"  [C/min]")
+        Tancient = Told
+        Told = fltStaveTemp
+        for j in range(2):
+          fltStaveTemp = self.funcStaveTemp(fltTemps) 
+          Tmean = (Tancient+Told+fltStaveTemp)/3
+          Tslope = ((Tmean-fltStaveTemp)+(Tancient-Tmean))/2 
+          Tancient = Told
+          Told = fltStaveTemp
+
+          for i in range(6 * intWaitTime): #The actual waiting
+            if intStatusCode.value > StatusCode.ERROR or \
+              ((intStatusCode.value == StatusCode.SHUTDOWN or intStatusCode.value == StatusCode.ERROR) \
+                and intSettings[Setting.STATE] != SysSettings.SHUTDOWN): return
+            elif fltSetTemp != fltTemps[0]: break #If the set temp changes go back to the beginning                  
+            time.sleep(5)
+            self.funcResetDog(Process.ROUTINE, intStatusArray)
+        if intCurrentWait >= intMaxWait:
+          logging.info( "< RUNNING > Routine wait ended after "+ str(intCurrentWait)+" min. The system took too long!")
+          logging.info( "< RUNNING > Stave reached Temperature " + str(round(fltStaveTemp,2))+ " C from Tset: "\
+                         + str(round(fltSetTemp,2))+ " C")
+          return          
+        elif fltSetTemp != fltTemps[0]: break
+      logging.info( "< RUNNING > Stave reached Temperature " + str(round(fltStaveTemp,2))+ " C from Tset: "\
+                         + str(round(fltTemps[0],2))+ " C")
+     
+      # Check to notify and hold or end wait    
+      if bolWaitInput == True and intStatusCode.value==StatusCode.OK and intSettings[Setting.STATE]!=SysSettings.SHUTDOWN:
+        intStatusArray[Process.ROUTINE] = ProcessState.HOLD # Makes the watchdog ignore this process as it waits for user input
+        logging.info("----------     The system is holding the current set Temp "+str(fltSetTemp)+" C")
+        print("**********     USER:To Release, type release and hit enter")
+        while intStatusArray[Process.ROUTINE] == ProcessState.HOLD and intStatusCode.value<=StatusCode.OK:
+          if fltSetTemp != fltTemps[0]: break
+          time.sleep(5) 
+        if fltSetTemp != fltTemps[0]: break
+        logging.info("----------     The system has been released.")
+        return
+      else: return
+
+# Function: Pump Setting -------------------------------------------------------
+  def funcPumpSetting (flowRate,fluidTemp):
+    """
+    This takes a wanted flow rate value of novec and the fluid temperature
+    to calculate the required chiller pump setting
+    """
+    #This will need to be figured out... TODO
+    return 22.0
+ 
+# ------------------------------------------------------------------------------ 
+# Process Watchdog -------------------------------------------------------------
+  def procWatchDog (self,queue, intStatusCode, intStatusArray, intSettings, fltTemps,\
+                    fltHumidity, fltRPS, fltProgress, bolSendEmail,\
+                    intLoggingLevel,strStartTime,strStartTimeVal,procShortList):
     '''
       The Watchdog is the system protection protocol. It has 2 purposes,
-      1. to keep track of errors
-      2. to notify the operators when end conditions are met
+      1. Keep track of error conditions.
+      2. Notify the operators when end of run conditions are met or fatal errors.
+
       Errors
         The system currently is written to deal mainly with timeout errors, though
         it will be easy to add in more complicated errors as well.
@@ -726,19 +724,21 @@ class clsChillerRun :
         process in this array.
         intCurrentState = OK, normal state
                           SLEEP, Timed out once!...
-                          DEAD, Timed out twice!... ->Send Email, and/or begin shutdown->Process is considered dead
+                          DEAD, Timed out twice!... 
+            If process status is DEAD, send Email notice, and/or begin shutdown.
 
-        Hold- If the user uses commands, they can set a process into the hold state.
-        In a hold state a process does nothing other than wait one second and
-        see if it is still in that state. This allows the user to change a 
-        battery or connection with the device from the pc. (This has been tested with
-        the thermocouples and works). Also it is utilized by the chiller wait function
-        to allow the system to hold at a set temperature.
+        Hold- The user or the routine can set a process into the hold state from
+        the terminal. In a hold state a process does nothing other than wait
+        some time and see if it is still in that state. This may allow the user to
+        change a battery or cable connection with the device from the pc. (It
+        worked for the thermocouples in earlier versions). Hold is also utilized
+        by the Routine to allow the system to hold at a set temperature to wait
+        for a user.
 
         Error1- This error is used by a few processes. If the humidity sensor has
         too high of a value and the temp settings are too low, the runChill will
         put the temperature into a higher setting and wait for the humidity to
-        drop. If it doesn't in 10 minutes it will put the system into ERROR.
+        drop. If it doesn't in 10 minutes it will put the system into SHUTDOWN.
 
         Others- Currently there are no specific error codes, though using higher values of intStatusArray
         or intCurrentState could be used to give that information with the WackDog function
@@ -750,99 +750,181 @@ class clsChillerRun :
     strWatchDog = '< WATCHDOG >'
     self.funcLoggingConfig(queue,intLoggingLevel)
     
-    #default mailList
-    mailList = ['wheidorn@iastate.edu']# This is the list of email addresses the program will send emails too
-    self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', [])
-    try: 
-      mailList = [ x.strip(' ') for x in self._istRunCfg.get( 'Email', 'Users' ).split(',') ]
-    except:
-      logging.warning('Unable to find email list in Config File, Using Default: wheidorn@iastate.edu')
-    
+    # Set up email system -------------
     if bolSendEmail == True:
+
+      # Create Mailing List
+      defaultMailList = ['wheidorn@iastate.edu']# Default mailing list
+      self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', [])
+      try: 
+        mailList = [ x.strip(' ') for x in self._istRunCfg.get( 'Email', 'Users' ).split(',') ]
+        if mailList[0] == '': #Check to make certain an email was added
+          mailList = defaultMailList
+      except:
+        logging.warning('Unable to find email list in Config File, Using Default: wheidorn@iastate.edu')
+        mailList = defaultMailList 
       logging.info(strWatchDog  +' Will notify: '+str(mailList))
+
     else:
       logging.info(strWatchDog +' Will notify: Local User')
 
-    def mail(strTitle,strMessage):#This sends an email out if bolSendEmail == true
+    # Create email message shell
+    def mail(strTitle,strMessage):
+      """
+      A quick definition of the messaging shell
+      """
       if bolSendEmail == True:  
-        print('Sending Message: '+strTitle+': '+strMessage+self.strStatus(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity,fltCurrentTemps,strStartTime,strStartTimeVal,procShortList)) 
-        for p in mailList: 
-          clsSendEmails.funcSendMail(clsSendEmails,p,strTitle,strMessage +self.strStatus(intStatusCode,intStatusArray,fltProgress,fltCurrentHumidity,fltCurrentTemps,strStartTime,strStartTimeVal,procShortList))
-          logging.info(strWatchDog+' Email sent to '+ p) 
+        strStatusText = self.strStatus(intStatusCode, intStatusArray, intSettings,\
+                                       fltTemps, fltHumidity, fltRPS, fltProgress, strStartTime,\
+                                       strStartTimeVal, procShortList)
+        print('Sending Message: '+strTitle+': '+strMessage + str(strStatusText))
+        for person in mailList: 
+          clsSendEmails.funcSendMail(clsSendEmails,person,strTitle,strMessage + strStatusText)
+          logging.info(strWatchDog+' Email sent to '+ person) 
           time.sleep(1)
+      else:
+        strStatusText = self.strStatus(intStatusCode, intStatusArray, intSettings,\
+                                       fltTemps, fltHumidity, fltRPS, fltProgress, strStartTime,\
+                                       strStartTimeVal, procShortList)
+        print('Watchdog Message: '+strTitle+': '+strMessage + str(strStatusText))
 
+    # Set up watchdog's current state array for all the processes
 
+    strProcesses = [process.name for process in procShortList]
 
-    
-    strProcesses = ['Listener','Temperature Recorder','Humidity Recorder','RunChillerPump']
-    intCurrentState = [ProcessCode.OK,ProcessCode.OK,ProcessCode.OK,ProcessCode.OK]
-    sentMessage = False
+    #strProcesses = ['Listener','Temperature Recorder','Humidity Recorder','Chiller','Pump','Arduino','Routine']
+    intCurrentState = [ProcessState.OK]*(len(strProcesses))
+    sentMessage = False # Only want to send one email...
 
-    intFrostCounter = 0
+    intFrostCounter = 0 
+    maxFrostTime = 60
+
+    #The main watchdog loop ------------
     while intStatusCode.value < StatusCode.DONE:      
       logging.debug( strWatchDog + ' Checking all process statuses')
       i = 0
-      for p in intStatusArray:
-
-        #How to deal with high humidity during a run
-        if p == ProcessCode.ERROR1 and i == Process.HUMI_REC:
-          logging.warning(strWatchDog+' FROST DANGER! The system will begin shutdown in '+ str((20- intFrostCounter)/2)+ ' min if the humidity does not drop. ')
-          intFrostCounter += 1
-          intCurrentState[i] = ProcessCode.ERROR1
-          if intFrostCounter >= 20:
-            logging.error( strWatchDog+' PROCESS: '+strProcesses[i]+' Humidity did not drop soon enough. Begin Shutdown')
-            intStatusCode.value = StatusCode.ERROR #Begin Normal shutdown
-            intCurrentState[i] = ProcessCode.OK #Put the process back into the OK state... so it will continue taking data
-          
-
+      for process in intStatusArray:
         #How to deal with a second timeout 
-        elif p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.SLEEP:
+        if process == ProcessState.SLEEP and intCurrentState[i] == ProcessState.SLEEP:
           logging.error(strWatchDog+' PROCESS: '+ strProcesses[i]+' is still Timed Out!!!!')
-          if i == Process.RUNCHILL:# If it is the chiller loop alert the authorities, but do not shutdown
+          if i == Process.CHILLER:# If it is the chiller alert the authorities, but do not shutdown
             logging.error(strWatchDog+' PROCESS: '+strProcesses[i]+' Killing System! ALERT THE AUTHORITIES!!!')  
             mail('Major Error!!!!!!!!','The watchdog lost track of the Chiller and Pump control!!!!')
             sentMessage = True
-            intCurrentState[i] = ProcessCode.DEAD
+            intCurrentState[i] = ProcessState.DEAD
           else:# If it is the logger, or one of the two recorders start shutdown
             intStatusCode.value = StatusCode.ERROR
-            intCurrentState[i] = ProcessCode.DEAD
+            intCurrentState[i] = ProcessState.DEAD
 
         #How to deal with a single timeout
-        elif p == ProcessCode.SLEEP and intCurrentState[i] == ProcessCode.OK: #Flags and Sends a timeout warning and sets the state to timed out
+        elif process == ProcessState.SLEEP and intCurrentState[i] == ProcessState.OK: #Flags and Sends a timeout warning and sets the state to timed out
           logging.warning(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!!')
-          intCurrentState[i] = ProcessCode.SLEEP
+          intCurrentState[i] = ProcessState.SLEEP
           if i == Process.LISTENER:# If the listener times out, we should just put it into shutdown, because we will no longer be logging
             print(strWatchDog+' PROCESS: '+ strProcesses[i]+' Timed Out!!!! Triggering Shutdown')
             intStatusCode.value = StatusCode.ERROR
-            intCurrentState[i] = ProcessCode.DEAD
+            intCurrentState[i] = ProcessState.DEAD
 
         #Resetting all activated processes
-        elif p == ProcessCode.OK:
-          intCurrentState[i] = ProcessCode.OK
+        elif process == ProcessState.OK:
+          intCurrentState[i] = ProcessState.OK
 
-        elif p == ProcessCode.HOLD and intCurrentState[i]==ProcessCode.OK: #Flags and Sends a Chiller has been held message
-          if i == 3:
-            logging.warning(strWatchDog+' Noticed Chiller was held. Sending Reminders!')
+        elif process == ProcessState.HOLD and intCurrentState[i]==ProcessState.OK: #Flags and Sends a Chiller has been held message
+          if i == Process.ROUTINE:
+            logging.warning(strWatchDog+' Noticed routine was held. Sending Reminders!')
             mail('REMINDER!','The Chiller has reached the set temperature!')
-          intCurrentState[i]=ProcessCode.HOLD
+          intCurrentState[i]=ProcessState.HOLD
 
         intStatusArray[i] = intCurrentState[i]
         #Resets all non error or higher process statuses to SLEEP
-        if p == ProcessCode.OK:        
-          intStatusArray[i] = ProcessCode.SLEEP
+        if process == ProcessState.OK:        
+          intStatusArray[i] = ProcessState.SLEEP
         i += 1 
 
-      #Messaging due to shutdown conditions being met
+        #How to deal with high humidity during a run
+      if intSettings[Setting.STATE] == SysSettings.HWAIT: 
+        logging.warning(strWatchDog+' FROST DANGER! The system will begin shutdown in '+ str((maxFrostTime- intFrostCounter)/2)+ ' min if the humidity does not drop. ')
+        intFrostCounter += 1
+        if intFrostCounter >= maxFrostTime:
+          logging.error( strWatchDog+' PROCESS: '+strProcesses[i]+' Humidity did not drop soon enough. Begin Shutdown')
+          intStatusCode.value = StatusCode.ERROR #Begin Normal shutdown
+          
+      #Final Messaging due to StatusCode ----
       for sec in range(30):
         time.sleep(1)
-        if intStatusCode.value == StatusCode.ERROR and sentMessage == False:
+        if intStatusCode.value == StatusCode.SHUTDOWN and sentMessage == False:
+          mail('SHUTDOWN Shutdown Triggered!!','The system is shutting down normally.'\
+                +' The program was '+str(fltProgress.value)+' % complete.\n')
+          sentMessage = True
+        elif intStatusCode.value == StatusCode.ERROR and sentMessage == False:
           mail('ERROR Shutdown Triggered!!','The system is shutting down normally.'\
                 +' The program was '+str(fltProgress.value)+' % complete.\n')
           sentMessage = True
-        if intStatusCode.value == StatusCode.FATAL and sentMessage == False:
+        elif intStatusCode.value == StatusCode.ABORT and sentMessage == False:
+          mail('ABORT Shutdown Triggered!!','The system was shut down.'\
+                +' It has not had time to properly cool! The program was '+str(fltProgress.value)+' % complete.\n')
+          sentMessage = True
+        elif intStatusCode.value == StatusCode.FATAL and sentMessage == False:
           mail('FATAL Shutdown Triggered!!','The system was shut down due to a fatal error.'\
                 +' It has not had time to properly cool! The program was '+str(fltProgress.value)+' % complete.\n')
           sentMessage = True
-        if intStatusCode.value == StatusCode.DONE and sentMessage == False:
+        elif intStatusCode.value == StatusCode.KILLED and sentMessage == False:
+          mail("KILLED chiller control system!!","The system has not been shutdown, the program has. Somebody didn't want to wait!\n")
+          sentMessage = True
+        elif intStatusCode.value == StatusCode.DONE and sentMessage == False:
           mail('DONE Shutdown!!','The system has been shutdown. The program was completed with no fuss!\n')
           sentMessage = True
+
+# Function: funcResetDog -------------------------------------------------------
+  def funcResetDog (intProcess,intStatusArray): #Puts the WatchDog into OK, which stops an error
+    '''
+    Each process has an assigned spot in the intStatusArray. Every 30 seconds 
+    the array is checked by the watchdog. The watchdog then sets all processes 
+    spots to ProcessState.SLEEP. In each process loop there is funcResetDog that
+    sets the spot to ProcessState.OK. 
+    '''
+    if intStatusArray[intProcess] == ProcessState.HOLD:
+      while intStatusArray[intProcess] == ProcessState.HOLD and intProcess != Process.ROUTINE :
+        time.sleep(1)
+    intStatusArray[intProcess] = ProcessState.OK
+ 
+# Function: strStatus ----------------------------------------------------------
+  def strStatus(intStatusCode, intStatusArray, intSettings, fltTemps, fltHumidity, \
+                fltRPS, fltProgress, gblstrStartTime, gblstrStartTimeVal, procShortList):
+    '''
+    returns a string that is the current status of the system
+    '''
+    strMessage = []
+    strGlbStatus = ['OK      ','SHUTDOWN','ERROR   ','ABORT   ','FATAL   ','KILLED  ','DONE    ']
+    strStatusVals = ['OK','Sleep','DEAD (:,()','Held']
+    strSystemSetting = ['START','ROUTINE','HWAIT','WAIT','SHUTDOWN','DONE']
+
+    fltRunningTime = round((time.time() - gblstrStartTimeVal),2)
+    intDays, intHours, fltMins = lstDeltaTime(fltRunningTime)
+
+    strMessage.append(f"     Program Started: {str(gblstrStartTime)}\n")
+    strMessage.append(f"     Run Time       : {intDays} days, {intHours} hours, {round(fltMins,2)} minutes\n")
+    strMessage.append(f"     Loop Progress  : {str(fltProgress.value)}%\n")
+    strMessage.append(f"     Global Status  : {strGlbStatus[intStatusCode.value]}\n\n") 
+    strMessage.append(f"     Current Setting: {strSystemSetting[intSettings[Setting.STATE]]}\n")
+
+    #print(intStatusArray[0])
+    i = 0
+    for p in procShortList:
+      if str(p.name) == 'WatchDog':
+        continue
+      strMessage.append("     Process: "+str(p.name)+ ' Status: '+strStatusVals[intStatusArray[i]]+'\n')          
+      i+=1
+    strMessage.append("     Process: Watchdog  Status: OK\n")
+    strMessage.append("     Current Temps")
+    i = 0
+    strTempNames = ["TSet","TRes","T1  ","T2  ","T3  ","T4  ","SVal"]
+    for p in fltTemps:
+      strMessage.append("  "+ strTempNames[i] +": "+ str(round(p,1))+u"\u00B0C")
+      i+=1
+    strMessage.append("\n     Humidity: " + str(round(fltHumidity.value,2)) + " %")
+    strMessage.append("\n Pump Setting: " + str(round(fltRPS[0],2)) + " rps")
+    strMessage.append("    Flow Rate: " + str(round(fltRPS[1],2)) + " l/min")
+    strMessage = ''.join(strMessage) 
+    return strMessage
+

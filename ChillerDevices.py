@@ -1,11 +1,41 @@
-"""
-device class to read from / write to USB connected devices:
-  chiller
-  boost pump
-  thermocouple couple
-  humidity sensor
-  IR camcera
-"""
+'''
+  Program ChillerDevices.py
+  
+Description: ------------------------------------------------------------------
+   This file contains the class construct to perform I/O with the USB connected
+devices used in the HEP ATLAS stave testing equipment.  The current 
+equipment/devices connected are:
+
+   Flir A655sc IR camera.
+   FTS Systems RC211B0 recirculating cooler,
+   Lenze ESV751N02YXC NEMA 4x inverter drive to control booster pump,
+   Omega HH314A Humidity meter,
+   Omega HH147U Data Logger Thermometer,
+   Arduino UNO board & DF Robot relay shield, ArduinoDevice.py
+
+History: ----------------------------------------------------------------------
+   V1.0 - Oct-2017  First public release.
+
+Environment: ------------------------------------------------------------------
+   This program is written in Python 3.6.  Python can be freely downloaded
+from http://www.python.org/.  This program has been tested on PCs running 
+Windows 10.
+
+Author List: -------------------------------------------------------------------
+  R. McKay    Iowa State University, USA  mckay@iastate.edu
+  J. Yu       Iowa State University, USA  jieyu@iastate.edu
+  W. Heidorn  Iowa State University, USA  wheidorn@iastate.edu
+  
+Notes: -------------------------------------------------------------------------
+
+Dictionary of abbreviations: ---------------------------------------------------
+    bol - boolean
+  cls - class
+  flt - float
+  int - integer
+  str - string
+'''
+
 # function __init__: 
 #   initialize the class device
 #   should include Configure Instance as input???
@@ -21,6 +51,9 @@ device class to read from / write to USB connected devices:
 #   return the device instance
 #
 #
+
+
+# Import section --------------------------------------------------------------
 
 import serial  # https://github.com/pyserial/pyserial, install: pip3.6 install pyserial
 import time
@@ -82,7 +115,6 @@ class clsHumidity ( clsDevice ):
     """
       Devide: Humidity, function of initialization
     """
-
 
     super().__init__(strName, strPort, intBaud, bytesize, parity, stopbits, timeout)
 
@@ -240,7 +272,6 @@ class clsChiller ( clsDevice ):
     # keep the last read out value
     self._value = 0
 
-
   def read(self, strCmdName, strCmdPara="",fltCurrentTemps=[]):
     """
       Chiller: function of reading data
@@ -273,9 +304,7 @@ class clsChiller ( clsDevice ):
           logging.warning(' Device ' + self.strName + ' has already been started. Ignoring...')
         elif strvarname[0:1] == str('E'):
           logging.fatal( ' Device ' + self.strName + ' returned error message: ' + strLine)
-          raise ValueError("Error Message Returned")
-    
-   
+          raise ValueError("Error Message Returned")   
         elif strvarname == str('F076') and fltvarvalue != 0:
           logging.fatal( ' Device ' + self.strName + ' has given alarm: ' +fltvarvalue) 
           raise ValueError("ALARM DETECTED")
@@ -307,7 +336,8 @@ class clsPump ( clsDevice ):
       logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName )
       self._pdev.write( bytes.fromhex(strCmdName))
       logging.debug( ' READING: ' + strCmdName + ' COMMAND sent ' )
-
+      if '?' in strCmdName:
+        print("#TODO check pump output convert")
     else :
       if strCmdName[-1:] == "=" :
         strCmdName = strCmdName[0:-1]
