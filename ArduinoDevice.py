@@ -66,11 +66,13 @@ class clsArduino (clsDevice):
     '''
     
     super().__init__(strName, strPort, intBaud, bytesize, parity, stopbits, timeout)
-    self._strClassName = 'Arduino'
+    self._strClassName = '< Arduino >'
+    self.strName = 'Arduino'
     self._enumBypassValve = valveState.OPEN  # Power up state of the bypass valve.
     self._enumInValve = valveState.CLOSE     # Power up state of the input valve.
     self._enumOutValve = valveState.CLOSE    # Power up state of the output valve.
     self._lstValveState = ['Open', 'Close']   # Possible states of valves.
+    self._value = 0
 
   def read(self, strCmdName, strCmdPara="",fltCurrentTemps=[]):
 
@@ -113,17 +115,19 @@ class clsArduino (clsDevice):
     TEMP_OFFSET = -0.0992     # Offset of temperature compensation equation.
     V2FLOW_SLOPE = 1.096      # Slope of voltage to flow rate conversion.
 
-    self._pdev.write(('F').encode())
+    self._pdev.write(('F\n').encode())
     logging.debug(self._strClassName + ': Sent command F (read Flowrate) to Arduino')
 
     # Read the returned text.  Should return "OK X.XX"
-    strReturnText = self._pdev.read(7)
+    byteline = self._pdev.readline()
+    strReturnText = byteline.decode()
+    #strReturnText = self._pdev.readline() 
     if "OK" in strReturnText:
       intIndex = strReturnText.index("K") + 2        # Find end of "OK " in text.
       fltFlowValue = float(strReturnText[intIndex:])  # Convert text value to float.
       correction = TEMP_SLOPE*fltCoolantTemp + TEMP_OFFSET
       fltFlowRate = V2FLOW_SLOPE*fltFlowValue + correction
-      logging.info(' Current flowrate: %0.3f l/m' %fltFlowRate)
+      #logging.info(' Current flowrate: %0.3f l/m' %fltFlowRate)
     else:
       fltFlowRate = -1.0      
       logging.error(' <ERROR> Received for flowrate: ' + strReturnText)
@@ -142,11 +146,12 @@ class clsArduino (clsDevice):
     The value return is boolean: True if operation completed, False if error.
     '''
 
-    self._pdev.write(('V').encode())
+    self._pdev.write(('V\n').encode())
     logging.debug(self._strClassName + ' Sent command V (toggle Valves) to Arduino')
 
-    # Read the returned text.  Should return "OK"
-    strReturnText = self._pdev.read(2)
+    # Read the returned text.  Should return "OK" 
+    byteline = self._pdev.readline()
+    strReturnText = byteline.decode()
     if "OK" in strReturnText:
       # Update the assumed state of the actuator valves.
       self._enumBypassValve = not self._enumBypassValve

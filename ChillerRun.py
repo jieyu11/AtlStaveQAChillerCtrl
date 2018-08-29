@@ -170,7 +170,7 @@ class clsChillerRun :
 
         # pass the configuration of how the devices connection
         # to the device handler
-
+        
         self._istDevHdl = clsDevicesHandler( self._istConnCfg, strDevNameList,bolRunPseudo )
 
         # interpretation of machine readable commands into human readable commands
@@ -510,7 +510,7 @@ class clsChillerRun :
         fltRPS[1] = float(fltRps)
         time.sleep(5)
 
-    logging.info( self._strClassName + ' Arduino finished shutdown. ') 
+    logging.info('< RUNNING > Arduino finished shutdown. ') 
 
 # ------------------------------------------------------------------------------
 # Routine Process --------------------------------------------------------------
