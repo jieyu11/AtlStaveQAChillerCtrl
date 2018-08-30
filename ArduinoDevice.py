@@ -110,8 +110,12 @@ class clsArduino (clsDevice):
       The value returned is a text string of the computed flow rate.  IF there
     was an error in reading the flowmeter analog value, return -1.00 for flow rate.
     '''
-    # Flow rate approximation is as given
-    #F = 1.15950427365*V + -0.190529119312 + -0.00135912949604*T + 3.14170448696e-05*T*T
+    # Flow rate approximation is as given by: 
+    # 
+    # F = 1.15950427365*V + -0.190529119312 + -0.00135912949604*T + 3.14170448696e-05*T*T
+    #
+    # This is only valid in the voltage region from 0.7-1.5
+    # For lower speeds the value is approximated by 1.2*V
 
     VSlope = 1.1595
     Toffset = -0.19053
@@ -125,13 +129,15 @@ class clsArduino (clsDevice):
     byteline = self._pdev.readline()
     strReturnText = byteline.decode()
     #strReturnText = self._pdev.readline() 
+       
     if "OK" in strReturnText:
       intIndex = strReturnText.index("K") + 2        # Find end of "OK " in text.
       fltFlowValue = float(strReturnText[intIndex:])  # Convert text value to float.
-      
-      correction = Toffset + Tslope*fltCoolantTemp + TSqVal*fltCoolantTemp*fltCoolantTemp
-      fltFlowRate = VSlope*fltFlowValue + correction
-      #logging.info(' Current flowrate: %0.3f l/m' %fltFlowRate)
+      if fltFlowValue < 0.7:
+        fltFlowRate = round(VSlope*fltFlowValue,2)
+      else:
+        correction = Toffset + TSlope*fltCoolantTemp + TSqVal*fltCoolantTemp*fltCoolantTemp
+        fltFlowRate = VSlope*fltFlowValue + correction  
     else:
       fltFlowRate = -1.0      
       logging.warning(' Received for flowrate: ' + strReturnText)

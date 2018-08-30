@@ -268,14 +268,15 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
                           f"{gblfltTempLowerLimit} and {gblfltTempUpperLimit}")
       elif 'ps' in strVal:              # Set booster pump rotations per second to new value.
         strVal= strVal.lstrip('pset ')  # Strip off command and save value.
+        print (strVal)
         try:
-          newValue = float(newValue)
+          newValue = float(strVal)
           if newValue < gblfltBoostPumpLowerLimit or newValue > gblfltBoostPumpUpperLimit:
             print(f"\aGiven value outside of bounds ({gblfltBoostPumpLowerLimit}, " \
                                                    f"{gblfltBoostPumpUpperLimit})")
           else:
             fltRPS[0] = newValue
-            intStatusCode.value = StatusCode.PCHG
+            intSettings[Setting.PCHANGE] = True
             print(f" Booster Pump RPS Changed to {newValue}")
         except:
           print(f"\aInvalid value. Value must be between " \

@@ -440,6 +440,7 @@ class clsChillerRun :
         self.funcResetDog(Process.CHILLER,intStatusArray)
 
     #Shutdown chiller
+    time.sleep(5)
     self.sendcommand(self,'cStop',intStatusCode,fltTemps)
     logging.info( self._strclassname + ' Chiller finished shutdown. ') 
 
@@ -460,7 +461,7 @@ class clsChillerRun :
       time.sleep(1)
     logging.info ( self._strclassname + ' Pump started. ')
 
-    #Chiller idles 
+    #Pump idles 
     while intStatusCode.value < StatusCode.ABORT:
       #Check To Exit Loop
       if intSettings[Setting.STATE] > SysSettings.SHUTDOWN: break
@@ -469,6 +470,8 @@ class clsChillerRun :
         NewRPS = fltRPS[0]
         self.sendcommand(self, 'iRPS=' + str(NewRPS), intStatusCode,fltTemps)
         intSettings[Setting.PCHANGE] = False
+        time.sleep(5)
+        self.funcResetDog(Process.PUMP,intStatusArray)
       #Do the idle thing(Check Pump, Wait)
       else:
         self.sendcommand(self, 'iStatus?', intStatusCode,fltTemps)
@@ -505,9 +508,18 @@ class clsChillerRun :
       else:
         self.sendcommand(self, 'aRPS?',intStatusCode,fltTemps)
         fltRps = istArduino.last()
-        self.funcResetDog(Process.ARDUINO,intStatusArray) 
-        logging.info( '<DATA> Arduino FlowRate = {:4.3f} l/min'.format( fltRps ) )
+        self.funcResetDog(Process.ARDUINO,intStatusArray)
+        if fltRps < 0.7:
+          logging.info( '<DATA> Arduino AprxFlRt = {:4.1f} l/min'.format( fltRps ) )
+        else:
+          logging.info( '<DATA> Arduino FlowRate = {:4.2f} l/min'.format( fltRps ) )
         fltRPS[1] = float(fltRps)
+        if intStatusCode.value > StatusCode.FATAL:
+          break
+
+        #TODO Add in a check for pump settings vs flow rate... 
+        # probably not necessary until actuator valves are in
+        
         time.sleep(5)
 
     logging.info('< RUNNING > Arduino finished shutdown. ') 
@@ -609,8 +621,10 @@ class clsChillerRun :
     intSettings[Setting.STATE] = SysSettings.SHUTDOWN
     if intStatusCode.value < StatusCode.ABORT:
       fltTemps[0] = 22 #Room Temperature
+      intSettings[Setting.TCHANGE] = True
       self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput)
     fltRPS[0] = 10 #Slow RPSs
+    intSettings[Setting.PCHANGE] = True
     time.sleep(5)
 
     #Tell All processes its time to shut off
@@ -635,28 +649,50 @@ class clsChillerRun :
     This checks to see when the fluid temperature gets to the set temperature
     """
 
-    Tancient = -99999. #Oldest Temp Change
-    Told = -999. #Next oldest Temp Change
+    Tancient = 0 #Oldest Temp Change
+    Told = 0 #Next oldest Temp Change
 
     while True: #This loop stays until it is broken
       intWaitTime = intTime #Time to wait between checks to reach temperature should be >30seconds
       
       fltSetTemp = fltTemps[0]
+      fltStaveTemp = self.funcStaveTemp(fltTemps)
       Tslope = 1000
-      TslopeLevel = 0.5 # C/min
+      TslopeLevel = 0.1 # C/min
 
       intMaxWait = 90 # max time to wait before chiller ends the wait.      
       intCurrentWait = 0
 
+      intFirstWait = 4 # Time to wait before checking for slope
+      #Wait for 5 min for the chiller to start cooling stave
+      logging.info( "< RUNNING > Changing Temperature from " + str(round(fltStaveTemp,2))+ " C to Tset: "\
+                      + str(round(fltSetTemp,2))+ " C over 4 min")
+      for i in range(2*intFirstWait): # 10 runs of 30seconds
+        for j in range(6): # Check every 5 seconds  
+          if intStatusCode.value > StatusCode.ERROR or \
+              ((intStatusCode.value == StatusCode.SHUTDOWN or intStatusCode.value == StatusCode.ERROR) \
+                and intSettings[Setting.STATE] != SysSettings.SHUTDOWN): return
+          elif fltSetTemp != fltTemps[0]: break #If the set temp changes go back to the beginning                  
+          time.sleep(5)
+          self.funcResetDog(Process.ROUTINE, intStatusArray)
+        Tancient = Told
+        Told = fltStaveTemp
+        fltStaveTemp = self.funcStaveTemp(fltTemps)
+        Tmean = (Tancient+Told+fltStaveTemp)/3
+        Tslope = ((Tmean-fltStaveTemp)+(Tancient-Tmean))/2
+
+      #Wait for the slope to level off
       while abs(Tslope) > TslopeLevel:
         fltStaveTemp = self.funcStaveTemp(fltTemps)
         Tmean = (Tancient+Told+fltStaveTemp)/3
         Tslope = ((Tmean-fltStaveTemp)+(Tancient-Tmean))/2
+
         logging.info( "< RUNNING > Routine waiting for abs.temp. slope to flatten. Current: "\
                       +str(round(abs(Tslope),2))+' > '+str(TslopeLevel)+"  [C/min]")
         Tancient = Told
         Told = fltStaveTemp
         for j in range(2):
+          #Calculate slope for an untested value
           fltStaveTemp = self.funcStaveTemp(fltTemps) 
           Tmean = (Tancient+Told+fltStaveTemp)/3
           Tslope = ((Tmean-fltStaveTemp)+(Tancient-Tmean))/2 
