@@ -130,7 +130,7 @@ class clsArduino (clsDevice):
       #logging.info(' Current flowrate: %0.3f l/m' %fltFlowRate)
     else:
       fltFlowRate = -1.0      
-      logging.error(' <ERROR> Received for flowrate: ' + strReturnText)
+      logging.warning(' Received for flowrate: ' + strReturnText)
       
     return fltFlowRate
     
