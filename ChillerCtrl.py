@@ -241,7 +241,7 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
         print(f" Estimated loop time remaining:{intDays} days,{intHours} hours, {fltMins} minutes")
       print("\n Current Temps")
       i = 0
-      strTempNames = ["TSet","TRes","Tin ","Tout","Tbox","Troo"]
+      strTempNames = ["TSet","TRes","Tin ","Tout","Tbox","Troo","Thum1","Thum2"]
       for p in fltTemps:
         print("     " + strTempNames[i] + ": " + str(round(p, 1)) + u"\u00B0C")
         i += 1
@@ -479,11 +479,11 @@ def main():
                                                              #  intSettings[2] = Need to change PSet?
                                                              #  intSettings[3] = Valve Setting?
 
-  fltTemps = Array('d',[20,20,20,20,20,20]) # Set temperature values at room temperature: 
+  fltTemps = Array('d',[20,20,20,20,20,20,20,20]) # Set temperature values at room temperature: 
                                                   #   fltTemps[0]   = Chiller SetTempValue,
                                                   #   fltTemps[1]   = Chiller TempValue
                                                   #   fltTemps[2-5] = Temperature Recorder Temps,
-
+                                                  #   fltTemps[6-7] = Humidity Logger Temps
   fltHumidity = Value('d',100)             # Start humidity value of 100%.
   fltRPS = Array('d',[10,10])                     #   fltRPS[0]   = Booster Pump Set Value rps
                                                   #   fltRPS[1]   = Arduino Flow Rate

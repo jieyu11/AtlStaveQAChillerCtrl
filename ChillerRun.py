@@ -328,8 +328,8 @@ class clsChillerRun :
             logging.error( self._strclassname + ' liquid temperature '+ self._fltTempLiquid +
                            ' > upper limit ' + fltTUpperLimit + '! Return! ') 
             intStatusCode.value = StatusCode.ERROR
-      logging.info('<DATA> Temps TSet: {:5.2f}, TRes: {:5.2f}, T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f} '.format( \
-                    fltTemps[0],fltTemps[1],fltTemps[2],fltTemps[3],fltTemps[4],fltTemps[5]) )
+      logging.info('<DATA> Temps TSet: {:5.2f}, TRes: {:5.2f}, T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f}'.format( \
+                    fltTemps[0],fltTemps[1],fltTemps[2],fltTemps[3],fltTemps[4],fltTemps[5],fltTemps[6],fltTemps[7]) )
     # after finishing running
     logging.info( self._strclassname + ' Temperature finished recording. ' )
 
@@ -372,10 +372,18 @@ class clsChillerRun :
       self.funcResetDog(Process.HUMI_REC,intStatusArray)
 
       self.sendcommand(self, 'hRead',intStatusCode,fltTemps)
-      fltHum = istHumidity.last()
+      lstValues = istHumidity.last()
+
+      fltHum = lstValues[0]
+      fltT1 = lstValues[1]
+      fltT2 = lstValues[2]
+
+      fltTemps[6] = fltT1
+      fltTemps[7] = fltT2
+
       #TODO Make this also read out temperature data...
  
-      logging.info( '<DATA> Humidity {:4.1f}'.format( fltHum ) )
+      logging.info( '<DATA> Humidity: {:4.1f}, T1H: {:4.1f}, T2H: {:4.1f}'.format( fltHum, fltT1,fltT2 ) )
 
       fltHumidity.value = fltHum #Sets global humidity
 
@@ -954,7 +962,7 @@ class clsChillerRun :
     strMessage.append("     Process: Watchdog  Status: OK\n")
     strMessage.append("     Current Temps")
     i = 0
-    strTempNames = ["TSet","TRes","T1  ","T2  ","T3  ","T4  ","SVal"]
+    strTempNames = ["TSet","TRes","T1  ","T2  ","T3  ","T4  ","TH1","TH2"]
     for p in fltTemps:
       strMessage.append("  "+ strTempNames[i] +": "+ str(round(p,1))+u"\u00B0C")
       i+=1

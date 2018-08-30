@@ -121,7 +121,7 @@ class clsHumidity ( clsDevice ):
     self._strClassName = ' < Humidity > '
 
     # keep the last read out value, initialized with 100%
-    self._value = 100
+    self._value = [100, 0, 0]
 
   def read(self, strCmdName, strCmdPara="",fltCurrentTemps=[]):
     """
@@ -140,7 +140,16 @@ class clsHumidity ( clsDevice ):
     strLine = byteline.hex()
     logging.debug( ' READING current ' + self.strName + ' value: ' + strLine  )
     humval = int(strLine[6:10], 16) / 10
-    self._value = humval
+    #print("------------------------->>>>>>>>>>>> "+strLine)
+    try:
+      t1val = int(strLine[10:14],16)/10
+    except:
+      t1val =-999
+    try:
+      t2val = int(strLine[14:18],16)/10
+    except:
+      t2val =-999
+    self._value = [humval,t1val,t2val]
     #logging.info( ' READING current ' + self.strName + ' value: {:4.1f}%'.format( humval )  )
     # TODO: do I need to return the value??
     #return humval
@@ -308,6 +317,13 @@ class clsChiller ( clsDevice ):
         elif strvarname == str('F076') and fltvarvalue != 0:
           logging.fatal( ' Device ' + self.strName + ' has given alarm: ' +fltvarvalue) 
           raise ValueError("ALARM DETECTED")
+        elif strvarname == str('F044'):
+          strNum = strLine.split('=')[-1]
+          strNum = strNum.strip('+-!')
+          if '+' in strLine:
+            self._value = float(strNum)
+          else:
+            self._value = float(strNum)*(-1.)
     
         #self._value = ErrorCode
         return
