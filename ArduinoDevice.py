@@ -110,10 +110,13 @@ class clsArduino (clsDevice):
       The value returned is a text string of the computed flow rate.  IF there
     was an error in reading the flowmeter analog value, return -1.00 for flow rate.
     '''
-    
-    TEMP_SLOPE = -0.0013575   # Slope of temperature compensation equation.
-    TEMP_OFFSET = -0.0992     # Offset of temperature compensation equation.
-    V2FLOW_SLOPE = 1.096      # Slope of voltage to flow rate conversion.
+    # Flow rate approximation is as given
+    #F = 1.15950427365*V + -0.190529119312 + -0.00135912949604*T + 3.14170448696e-05*T*T
+
+    VSlope = 1.1595
+    Toffset = -0.19053
+    TSlope = -0.0013591
+    TSqVal = 3.1417e-5
 
     self._pdev.write(('F\n').encode())
     logging.debug(self._strClassName + ': Sent command F (read Flowrate) to Arduino')
@@ -125,8 +128,9 @@ class clsArduino (clsDevice):
     if "OK" in strReturnText:
       intIndex = strReturnText.index("K") + 2        # Find end of "OK " in text.
       fltFlowValue = float(strReturnText[intIndex:])  # Convert text value to float.
-      correction = TEMP_SLOPE*fltCoolantTemp + TEMP_OFFSET
-      fltFlowRate = V2FLOW_SLOPE*fltFlowValue + correction
+      
+      correction = Toffset + Tslope*fltCoolantTemp + TSqVal*fltCoolantTemp*fltCoolantTemp
+      fltFlowRate = VSlope*fltFlowValue + correction
       #logging.info(' Current flowrate: %0.3f l/m' %fltFlowRate)
     else:
       fltFlowRate = -1.0      
