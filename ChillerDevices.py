@@ -139,16 +139,10 @@ class clsHumidity ( clsDevice ):
     byteline = self._pdev.read(10)
     strLine = byteline.hex()
     logging.debug( ' READING current ' + self.strName + ' value: ' + strLine  )
-    humval = int(strLine[6:10], 16) / 10
-    #print("------------------------->>>>>>>>>>>> "+strLine)
-    try:
-      t1val = int(strLine[10:14],16)/10
-    except:
-      t1val =-999
-    try:
-      t2val = int(strLine[14:18],16)/10
-    except:
-      t2val =-999
+    humval = int(strLine[6:10], 16) / 10 
+    t1val = int(strLine[10:14],16)/10
+    t2val = int(strLine[14:18],16)/10
+
     self._value = [humval,t1val,t2val]
     #logging.info( ' READING current ' + self.strName + ' value: {:4.1f}%'.format( humval )  )
     # TODO: do I need to return the value??

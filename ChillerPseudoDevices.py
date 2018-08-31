@@ -86,7 +86,7 @@ class clsPseudoHumidity ( clsPseudoDevice ):
     self._strclassname = ' < Humidity > '
 
     # keep the last read out value, initialized with 100%
-    self._value = 100
+    self._value = [100,0,0]
 
 # ----------------------------
   def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
@@ -96,7 +96,7 @@ class clsPseudoHumidity ( clsPseudoDevice ):
     logging.debug( self._strclassname + ' Sending command ' + strcmdname + ' to device ' + self._strname )
 
     # random in 0. - 1., return in percentage
-    self._value = random.random() * 5
+    self._value = [random.random() * 5,20,20]
 
 # ----------------------------
   def last(self) : 
@@ -205,7 +205,7 @@ class clsPseudoChiller ( clsPseudoDevice ):
     TSet = fltCurrentTemps[0]
     TIn = fltCurrentTemps[2]
 
-    self._value = TSet*.3 + TIn*.7
+    self._value = TSet*.5 + TIn*.5
 
 # ----------------------------
   def last(self) :
