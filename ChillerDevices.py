@@ -308,9 +308,15 @@ class clsChiller ( clsDevice ):
         elif strvarname[0:1] == str('E'):
           logging.fatal( ' Device ' + self.strName + ' returned error message: ' + strLine)
           raise ValueError("Error Message Returned")   
-        elif strvarname == str('F076') and fltvarvalue != 0:
-          logging.fatal( ' Device ' + self.strName + ' has given alarm: ' +fltvarvalue) 
-          raise ValueError("ALARM DETECTED")
+        elif strvarname == str('F076'):
+          strNum = strLine.split('=')[-1]
+          strNum = strNum.strip('+-!')
+          fltNum = float(strNum)
+          logging.debug( ' Device ' + self.strName + ' has given alarm: ' +strNum)
+          if fltNum != 0:
+            logging.fatal( ' Device ' + self.strName + ' has given alarm: ' +strNum) 
+            self._value = float(-9999)
+
         elif strvarname == str('F044'):
           strNum = strLine.split('=')[-1]
           strNum = strNum.strip('+-!')

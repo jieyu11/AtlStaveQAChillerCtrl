@@ -181,7 +181,7 @@ class clsChillerRun :
         self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', strDevNameList )
 
       else:
-        self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', ['Chiller'] )
+        self._istRunCfg = clsConfig( 'ChillerRunConfig.txt', ['Chiller','Pump'] )
 
     except:
       logging.fatal("FAILED TO INITIALIZE "+str(strDevNameList)+" Aborting! Please check connections!")
@@ -434,15 +434,17 @@ class clsChillerRun :
         NewTemp = fltTemps[0]
         self.sendcommand(self, 'cChangeSetpoint=' + str(NewTemp), intStatusCode,fltTemps)
         intSettings[Setting.TCHANGE] = False
+        logging.info('< RUNNING > Chiller Set Temp: '+str(NewTemp))
       #Do the idle thing(Check Chiller, and Read Temperature)
       else:
         self.sendcommand(self, 'cAlarmStat?', intStatusCode,fltTemps)
-
+        if istTemp.last() == -9999: #This is the message for a fatal error!!!!
+          intStatusCode.value = StatusCode.FATAL
         if intStatusCode.value > StatusCode.ERROR: break
         self.sendcommand(self, 'cGetResTemp?',intStatusCode,fltTemps)
         ReservoirTemp = istTemp.last()
         fltTemps[1] = ReservoirTemp  #TODO Needs to be tested...
-
+        logging.info("<DATA> TempReadings TRes = "+str(ReservoirTemp))
         if intStatusCode.value > StatusCode.ERROR: break
         time.sleep(2.8) #This may not be necessary
         self.funcResetDog(Process.CHILLER,intStatusArray)
@@ -478,6 +480,7 @@ class clsChillerRun :
         NewRPS = fltRPS[0]
         self.sendcommand(self, 'iRPS=' + str(NewRPS), intStatusCode,fltTemps)
         intSettings[Setting.PCHANGE] = False
+        logging.info('< RUNNING > Pump Set RPS: '+str(NewRPS))
         time.sleep(5)
         self.funcResetDog(Process.PUMP,intStatusArray)
       #Do the idle thing(Check Pump, Wait)
@@ -490,8 +493,6 @@ class clsChillerRun :
     #Shutdown pump
     self.sendcommand(self,'iStop',intStatusCode,fltTemps)
     logging.info( self._strclassname + ' Pump finished shutdown. ')
-
-
 
 # ------------------------------------------------------------------------------
 # Arduino Process --------------------------------------------------------------
@@ -510,6 +511,7 @@ class clsChillerRun :
       if intSettings[Setting.TOGGLE] == True:
         logging.info( self._strclassname + 'Toggling valve state.')
         self.sendcommand(self, 'aToggle',intStatusCode,fltTemps)
+        logging.info('< RUNNING > Arduino Toggled')
         intSettings[Setting.TOGGLE] = False
 
       #Do the idle thing (Read current RPS, Wait)
@@ -563,12 +565,17 @@ class clsChillerRun :
       name = 'Chiller'
       try:
         intChiNLoops  = abs(int( self._istRunCfg.get( name, 'NLoops' ) ) )
+        intStopTemp = int(self._istRunCfg.get( name, 'StopTemperature'))
+        fltRunRPM = float(self._istRunCfg.get('Pump','RunRPM'))
       except:
         logging.fatal("Sections: "+ name + ", Key: NLoops not present in configure: %s" % \
                        self._istRunCfg.name())
         intStatusCode.value = StatusCode.FATAL
         return
       logging.info("---------- Section: "+ name + ", number of loops " + str(intChiNLoops) )    
+      #Set Pump to loaded setting
+      fltRPS[0] = fltRunRPM #Slow RPSs
+      intSettings[Setting.PCHANGE] = True
 
       #Get Temperature and Time Period Lists
       try:
@@ -597,8 +604,8 @@ class clsChillerRun :
           # changing the Chiller Temperature to a corresponding value
           fltTemps[0] = float(strTemperatureList[itemp]) #Change Set Temperature
           intSettings[Setting.TCHANGE] = True
-          fltRPS[0] = self.funcPumpSetting(1,strTemperatureList[itemp]) #Change Pump Setting so its at 1 l/min
-          intSettings[Setting.PCHANGE] = True
+          #fltRPS[0] = self.funcPumpSetting(1,strTemperatureList[itemp]) #Change Pump Setting so its at 1 l/min
+          #intSettings[Setting.PCHANGE] = True #To be dealt with
  
           # Begin waiting to reach the set temperature        
           self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput) 
@@ -628,7 +635,7 @@ class clsChillerRun :
     #Shutdown
     intSettings[Setting.STATE] = SysSettings.SHUTDOWN
     if intStatusCode.value < StatusCode.ABORT:
-      fltTemps[0] = 22 #Room Temperature
+      fltTemps[0] = intStopTemp #Room Temperature
       intSettings[Setting.TCHANGE] = True
       self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput)
     fltRPS[0] = 10 #Slow RPSs
@@ -670,7 +677,7 @@ class clsChillerRun :
 
       intMaxWait = 90 # max time to wait before chiller ends the wait.      
       intCurrentWait = 0
-
+      """ Old method can be erased
       intFirstWait = 4 # Time to wait before checking for slope
       #Wait for 5 min for the chiller to start cooling stave
       logging.info( "< RUNNING > Changing Temperature from " + str(round(fltStaveTemp,2))+ " C to Tset: "\
@@ -688,6 +695,24 @@ class clsChillerRun :
         fltStaveTemp = self.funcStaveTemp(fltTemps)
         Tmean = (Tancient+Told+fltStaveTemp)/3
         Tslope = ((Tmean-fltStaveTemp)+(Tancient-Tmean))/2
+      """
+      TRes = fltTemps[1]
+      while TRes > fltSetTemp + 1 or TRes < fltSetTemp -1:
+        logging.info("< RUNNING > Waiting 1 min for TRes to be within one degree of TSet: "+ str(fltSetTemp))
+        for j in range(12): # Check every 5 seconds  
+          if intStatusCode.value > StatusCode.ERROR or \
+              ((intStatusCode.value == StatusCode.SHUTDOWN or intStatusCode.value == StatusCode.ERROR) \
+                and intSettings[Setting.STATE] != SysSettings.SHUTDOWN): return
+          elif fltSetTemp != fltTemps[0]: break #If the set temp changes go back to the beginning                  
+          time.sleep(5)
+          self.funcResetDog(Process.ROUTINE, intStatusArray)
+        Tancient = Told
+        Told = fltStaveTemp
+        fltStaveTemp = self.funcStaveTemp(fltTemps)
+        Tmean = (Tancient+Told+fltStaveTemp)/3
+        Tslope = ((Tmean-fltStaveTemp)+(Tancient-Tmean))/2
+        TRes = fltTemps[1]
+        if fltSetTemp != fltTemps[0]: break
 
       #Wait for the slope to level off
       while abs(Tslope) > TslopeLevel:
