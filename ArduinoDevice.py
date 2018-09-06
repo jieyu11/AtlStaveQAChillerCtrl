@@ -114,8 +114,8 @@ class clsArduino (clsDevice):
     # 
     # F = 1.15950427365*V + -0.190529119312 + -0.00135912949604*T + 3.14170448696e-05*T*T
     #
-    # This is only valid in the voltage region from 0.7-1.5
-    # For lower speeds the value is approximated by 1.2*V
+    # This is only valid in the voltage region from 0.7-1.5 lower or higher values still use
+    # the same formula, but if the formula would return a negative rate it is set to 0
 
     VSlope = 1.1595
     Toffset = -0.19053
@@ -133,11 +133,10 @@ class clsArduino (clsDevice):
     if "OK" in strReturnText:
       intIndex = strReturnText.index("K") + 2        # Find end of "OK " in text.
       fltFlowValue = float(strReturnText[intIndex:])  # Convert text value to float.
-      if fltFlowValue < 0.7:
-        fltFlowRate = round(VSlope*fltFlowValue,2)
-      else:
-        correction = Toffset + TSlope*fltCoolantTemp + TSqVal*fltCoolantTemp*fltCoolantTemp
-        fltFlowRate = VSlope*fltFlowValue + correction  
+      correction = Toffset + TSlope*fltCoolantTemp + TSqVal*fltCoolantTemp*fltCoolantTemp
+      fltFlowRate = VSlope*fltFlowValue + correction
+      if fltFlowRate < 0:
+        fltFlowRate = 0.
     else:
       fltFlowRate = -1.0      
       logging.warning(' Received for flowrate: ' + strReturnText)

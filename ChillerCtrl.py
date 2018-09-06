@@ -343,9 +343,11 @@ def runPseudo():
     actual live real time mode.  If actual real time mode, inform user the state 
     the devices/equipment must be in to run properly.
   '''
-  strVal= input(" USER: Do you wish to run with pseudo data? (y/n) ")
+  strVal= input(" USER: Do you wish to run with pseudo data? (y/n/q) ")
   if strVal.lower() == 'y':
     return True
+  elif strVal.lower() == 'q':
+    stopRun()
   else:
     input(" USER: Check the status of the... \n\n \
          Booster Pump   == Is it set to remote state?\n \
@@ -363,9 +365,11 @@ def routine():
   '''
     Ask the user if they want to run a routine.
   '''
-  strVal= input(" USER: Do you wish to run a routine from ChillerRunConfig.txt? (y/n) ")
+  strVal= input(" USER: Do you wish to run a routine from ChillerRunConfig.txt? (y/n/q) ")
   if strVal.lower() == 'y':
     return True
+  elif strVal.lower() == 'q':
+    stopRun()
   else:
     return False
 
@@ -375,9 +379,11 @@ def waitInput():
   '''
     Ask the user if they want to the chiller to wait once it gets to a set temp.
   '''
-  strVal= input(" USER: Do you want to have the chiller hold when it reaches set temperatures? (y/n) ")
+  strVal= input(" USER: Do you want to have the chiller hold when it reaches set temperatures? (y/n/q) ")
   if strVal.lower() == 'y':
     return True
+  elif strVal.lower() == 'q':
+    stopRun()
   else:
     return False
 
@@ -386,9 +392,11 @@ def sendEmail():
   '''
     Ask the user if they want to send notification emails.
   '''
-  strVal= input(" USER: Do you wish to send emails to notify when shutdown occurs? (y/n) ")
+  strVal= input(" USER: Do you wish to send emails to notify when shutdown occurs? (y/n/q) ")
   if strVal.lower() == 'y':
     return True
+  elif strVal.lower() == 'q':
+    stopRun()
   else:
     return False
 

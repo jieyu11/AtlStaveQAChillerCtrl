@@ -452,7 +452,8 @@ class clsChillerRun :
     #Shutdown chiller
     time.sleep(5)
     self.sendcommand(self,'cStop',intStatusCode,fltTemps)
-    logging.info( self._strclassname + ' Chiller finished shutdown. ') 
+    logging.info( self._strclassname + ' Chiller finished shutdown. ')
+    intStatusCode.value = StatusCode.DONE
 
 # ------------------------------------------------------------------------------
 # Pump Process -----------------------------------------------------------------
@@ -554,6 +555,14 @@ class clsChillerRun :
         self.funcResetDog(Process.ROUTINE,intStatusArray)
         if intSettings[Setting.TCHANGE] == True and bolWaitInput == True:
           self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput)
+    try:
+      intStopTemp = int(self._istRunCfg.get( name, 'StopTemperature'))
+      fltRunRPM = float(self._istRunCfg.get('Pump','RunRPM'))
+    except:
+      logging.warning("< RUNNING > Missing chiller StopTemperature and RunRPM, using 22 and 22 respectively")
+      intStopTemp = 22
+      fltRunRPM = 22.
+
 
     if bolRoutine == True:
 
