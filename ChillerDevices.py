@@ -69,7 +69,7 @@ class clsDevice:
     """
       function of initialization for any device
     """
-    logging.info( ' Initialization Device, name ' + strName + ' PORT ' + strPort + ' baud ' + str(intBaud) + \
+    logging.info(' Initialization Device, name ' + strName + ' PORT ' + strPort + ' baud ' + str(intBaud) + \
                   ' bytesize ' + str(bytesize) + ' parity ' + str( parity ) + ' stopbits ' + str( stopbits ) + \
                   ' timeout ' + str(timeout) )
 
@@ -85,11 +85,11 @@ class clsDevice:
     self._bolOpened = self._pdev.is_open # need to check the device status first
 
     self.strName = strName
-    logging.info( 'Loading {:20s}'.format( strName ) + ' at port {:6s}'.format( strPort ) + \
+    logging.info('Loading {:20s}'.format( strName ) + ' at port {:6s}'.format( strPort ) + \
                   ' baudrate at {:6d}'.format( intBaud ) + ' status {:b}'.format( self._bolOpened) );
 
   def __str__(self):
-    print( 'Device {:20s}'.format( strName ) + ' at port {:6s}'.format( strPort ) + \
+    print('Device {:20s}'.format( strName ) + ' at port {:6s}'.format( strPort ) + \
            ' baudrate at {:6d}'.format( intBaud ) + ' status {:b}'.format( self._bolOpened) );
 
   def read(self, strCmdName, strCmdPara="",fltCurrentTemps=[]):
@@ -138,13 +138,13 @@ class clsHumidity ( clsDevice ):
     # read 10 bits
     byteline = self._pdev.read(10)
     strLine = byteline.hex()
-    logging.debug( ' READING current ' + self.strName + ' value: ' + strLine  )
+    logging.debug(' READING current ' + self.strName + ' value: ' + strLine  )
     humval = int(strLine[6:10], 16) / 10 
     t1val = int(strLine[10:14],16)/10
     t2val = int(strLine[14:18],16)/10
 
     self._value = [humval,t1val,t2val]
-    #logging.info( ' READING current ' + self.strName + ' value: {:4.1f}%'.format( humval )  )
+    #logging.info(' READING current ' + self.strName + ' value: {:4.1f}%'.format( humval )  )
     # TODO: do I need to return the value??
     #return humval
 
@@ -182,7 +182,7 @@ class clsThermocouple ( clsDevice ):
     """
       Thermocouple: function of reading data
     """
-    logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName )
+    logging.debug(' READING: Sending command ' + strCmdName + ' to device ' + self.strName )
     #self._pdev.write( (strCmdName + '\r\n').encode() )
     #should send HEX instead of a string
     self._pdev.write( bytes.fromhex(strCmdName) )
@@ -236,7 +236,7 @@ class clsThermocouple ( clsDevice ):
         Tval = int(strTval) / 1000 * fltTsign
         self._temperaturedata[ Lidx ][ Tidx ] = Tval
 
-        #strTall.append( ' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) )
+        #strTall.append(' T{:1d} value: {:6.3f}'.format((Tidx+1), Tval ) )
         strTall += ' T{:1d}: {:6.3f}'.format((Tidx+1), Tval ) 
 
         # every read out has 8 bytes
@@ -254,15 +254,16 @@ class clsThermocouple ( clsDevice ):
       there are total of 29 readouts, define for which one to read
     """
     if lineIdx < 0 :
-      logging.warning( ' data line index ' + str(lineIdx) + ' < 0!! set to 0. ' )
+      logging.warning(' data line index ' + str(lineIdx) + ' < 0!! set to 0. ' )
       lineIdx = 0
     elif lineIdx >= self._intDataLines :
-      logging.warning( ' data line index ' + str(lineIdx) + ' >= ' + str(self._intDataLines) + \
+      logging.warning(' data line index ' + str(lineIdx) + ' >= ' + str(self._intDataLines) + \
                        '!! set to ' + str(self._intDataLines - 1) + '.' )
       lineIdx = self._intDataLines - 1
 
     return tuple( self._temperaturedata[lineIdx] )
 
+# ------------------------------------------------------------------------------
 class clsChiller ( clsDevice ):
   def __init__(self, strName, strPort, intBaud, bytesize=8, parity='N', stopbits=1, timeout=2):
     """
@@ -280,19 +281,19 @@ class clsChiller ( clsDevice ):
       Chiller: function of reading data
     """
     if strCmdPara == "" :
-      logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName )
+      logging.debug(' READING: Sending command ' + strCmdName + ' to device ' + self.strName )
       self._pdev.write( (strCmdName + '\r\n').encode() )
     else :
-      logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName + " with parameter " + strCmdPara)
+      logging.debug(' READING: Sending command ' + strCmdName + ' to device ' + self.strName + " with parameter " + strCmdPara)
       self._pdev.write( (strCmdName + strCmdPara + '\r\n').encode() ) 
     byteline = self._pdev.readline()
     strinclines =  byteline.decode()
 
      
     for index, strLine in enumerate(strinclines.splitlines()) :
-      logging.debug(' GOT '+ strLine)
+      logging.debug(' Chiller returned: '+ strLine)
       if index ==0 and ('ok' in strLine or 'Ok' in strLine or 'OK' in strLine) : 
-        logging.debug( ' Device ' + self.strName + ' status :'+ strLine)
+        logging.debug(' Device ' + self.strName + ' status :'+ strLine)
       elif index ==0 :
         logging.fatal(' Device ' + self.strName + ' Response from Chiller:' + strLine + '. FATAL! ' )
         raise ValueError(" Garbled Response!!!! NOT GOOD")
@@ -301,22 +302,23 @@ class clsChiller ( clsDevice ):
         strvarname = strLine[0:4]
         fltvarvalue = float( strLine[5:-1] )
         if strvarname[0:1] != str('F') and strvarname[0:1] != str('E') :
-          logging.fatal( ' Device ' + self.strName + ' returned message: ' + strLine + ' not recognized. FATAL!' )
+          logging.fatal(' Device ' + self.strName + ' returned message: ' + strLine + ' not recognized. FATAL!' )
           raise ValueError(" Bad Response")
         elif strvarname == str('E042'):
           logging.warning(' Device ' + self.strName + ' has already been started. Ignoring...')
         elif strvarname[0:1] == str('E'):
-          logging.fatal( ' Device ' + self.strName + ' returned error message: ' + strLine)
+          logging.fatal(' Device ' + self.strName + ' returned error message: ' + strLine)
           raise ValueError("Error Message Returned")   
         elif strvarname == str('F076'):
           strNum = strLine.split('=')[-1]
           strNum = strNum.strip('+-!')
           fltNum = float(strNum)
-          logging.debug( ' Device ' + self.strName + ' has given alarm: ' +strNum)
+#          logging.debug(' Device ' + self.strName + ' has given alarm: ' +strNum)
           if fltNum != 0:
-            logging.fatal( ' Device ' + self.strName + ' has given alarm: ' +strNum) 
+            logging.fatal(' Device ' + self.strName + ' has given alarm: ' + strNum) 
             self._value = float(-9999)
-
+          else:
+            logging.debug('  Chiller has no alarms.')
         elif strvarname == str('F044'):
           strNum = strLine.split('=')[-1]
           strNum = strNum.strip('+-!')
@@ -328,91 +330,89 @@ class clsChiller ( clsDevice ):
         #self._value = ErrorCode
         return
       else:
-        logging.info(" Device " +self.strName+' gave weird result: ' + strLine)
+        logging.info(" Device " + self.strName + ' gave weird result: ' + strLine)
         
   def last(self) :
     return self._value
-
+    
+    
+# ------------------------------------------------------------------------------
+# --------------------------- Booster pump class -------------------------------
 class clsPump ( clsDevice ):
   def __init__(self, strName, strPort, intBaud, bytesize=8, parity='N', stopbits=1, timeout=1):
     """
-      Device: boost pump, function of initialization
+      Initialize booster pump inverter (i.e. controller) serial protocol and define the 
+      boundries of the frequency (i.e. RPS) we will allow the booster pump to run.
     """
     super().__init__(strName, strPort, intBaud, bytesize, parity, stopbits, timeout)
     self.istCRC = CycRedundCheck()
+    self.fltRPSmin = 5.0
+    self.fltRPSmax = 40.0
+    self.fltRPSdefault = 12.0
     self._value = 0
 
 
-  def read(self, strCmdName, strCmdPara="",fltCurrentTemps=[]):
+# ------------------------------------------------------------------------------
+  def read(self, strCmdName, strCmdParam="", fltCurrentTemps=[]):
     """
-      Pump: function of reading data
+      Send a command to the booster pump inverter and read the response.
+      The inverter will echo the command back, except for status commands.  Should
+      the command sent not valid, the inverter will not respond.
     """
-    #logging.info(' ==== Pump read through ' + strCmdName + ' and parameter: ' + strCmdPara)
-    if strCmdPara == "" : 
-      logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName )
+	
+	# If there is no command parameter passed in, then assume the complete command with
+	# parameter(s) plus CRC was included with the command passed in.
+    if strCmdParam == "" : 
+      logging.debug('READ: Sending command ' + strCmdName + ' to ' + self.strName )
       self._pdev.write( bytes.fromhex(strCmdName))
-      logging.debug( ' READING: ' + strCmdName + ' COMMAND sent ' )
+      logging.debug('READ:    sent command ' + strCmdName + ' to ' + self.strName)
       if '?' in strCmdName:
         print("#TODO check pump output convert")
+		
+	# Here we deal with commands that have a parameter and needs to calculate the CRC
+	# for a correct command to send to the device. Also look for the '=' sign as this
+	# means the parameter is included in the command.
     else :
       if strCmdName[-1:] == "=" :
         strCmdName = strCmdName[0:-1]
 
-      logging.debug ("pump parameter: " + strCmdPara)
-      fltCmdPara = float(strCmdPara) # e.g. 22.5
-      if fltCmdPara < 5 or fltCmdPara > 25 :
-        logging.warning( ' setting value ' + strCmdPara + ' is out of allowed range [5, 25] to device ' + self.strName )
-        #print( ' WARNING setting value ' + strCmdPara + ' is out of allowed range [5, 25] to device ' + self.strName )
-        fltCmdPara = 10
+      logging.debug("Booster pump parameter: " + strCmdParam)
+      fltCmdParam = float(strCmdParam) # e.g. 22.5
+      if fltCmdParam < self.fltRPSmin or fltCmdParam > self.fltRPSmax :
+        logging.warning(f' WARNING! value {strCmdParam} is out of allowed range [{self.fltRPSmin},{self.fltRPSmax}]' \
+                      + f' for {self.strName}.  Pump will be set to {self.fltRPSdefault} RPS' )
+        fltCmdParam = self.fltRPSdefault
 
-      intcmdpara = int( 10 * fltCmdPara )
-      logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName + ' at parameter ' + strCmdPara )
-      strCmdPara = '{:04x}'.format(intcmdpara) # 
-      strCmdPara = strCmdPara.upper()
+      intCmdParam = int(10 * fltCmdParam)
+      logging.debug(f'READ: Sending command {strCmdName} to {self.strName} with parameter {strCmdParam}' )
+      strCmdParam = '{:04x}'.format(intCmdParam) # 
+      strCmdParam = strCmdParam.upper()
+      strCommand = strCmdName + strCmdParam
+      logging.debug(f" READ: {self.strName} calculating CRC from {strCommand} of length {str(len(strCommand))}" )
 
-      logging.debug ('GOT command name ' + strCmdName)
-
-      strCmdNamepara = strCmdName + strCmdPara
-
-      logging.debug (" READING " + self.strName + " converting from " + strCmdNamepara + " with length " + str(len(strCmdNamepara)) )
-
-      strHexCmdNamePara = bytearray.fromhex( strCmdNamepara )
-      # 'cp1252' windows default encoding
-      strHexCmdNamePara = str( strHexCmdNamePara.decode('cp1252') )
-
-
-      logging.debug ('SEND command parameters for conversion ' + str(strHexCmdNamePara) )
+      strCmdByteArr = bytearray.fromhex( strCommand )
+      logging.debug('READ: command string to calculate CRC: ' + str(strCmdByteArr) )
       crc = 0xFFFF
-
-      ##! OK!! strHexCmdNamePara = "\x01\x06\x00\x2C\x00\xdc" #This is what must be sent to the following line to give the correct
-      ##! CRC value to change the pump to 22 RPM
-
-      hexcrc = self.istCRC.calcString( strHexCmdNamePara, crc)
-      logging.debug ('conver to string ' + str(hexcrc) )
-      strhexcrc = format(hexcrc, '04x')
-      strhexcrc = strhexcrc[2:] + strhexcrc[0:2]
-      logging.debug( ' READING: Sending command ' + strCmdName + ' to device ' + self.strName + ' at parameter in hex: ' + strCmdPara + " generated: " + strhexcrc )
-      logging.debug ('SENDING : ' + strCmdName +strCmdPara.upper() +strhexcrc.upper() )
-
-      self._pdev.write( bytes.fromhex(strCmdName +strCmdPara.upper() +strhexcrc.upper() ) )
-
-
-    logging.debug( ' READING ' + self.strName + ' commend sent ' )
+      for ch in strCmdByteArr:
+        crc = self.istCRC.calcByte(ch, crc)
+      strHexCRC = format(crc, '04x')
+      strHexCRC = strHexCRC[2:] + strHexCRC[0:2]  # Must swap bytes as CRC calculator result is little endian.
+      logging.debug(f'READ: Sending command {strCmdName} to {self.strName} with parameter ' \
+                  + f'{strCmdParam} + CRC {strHexCRC}')
+      theCommand = strCommand + strHexCRC.upper()
+      self._pdev.write( bytes.fromhex(theCommand) )
+      logging.debug('READ: full command sent: ' + theCommand )
     
     byteline = self._pdev.readline(20)
-    logging.debug( ' READING ' + self.strName + ' line obtained with bytes ' )
-    strLine = byteline.hex()
-    logging.debug(' strLine[0:4]= '+strLine[0:4]+', strCmdName[0:4]= '+strCmdName[0:4])
-    if strLine[0:4] != strCmdName[0:4]:
+    strResponse = byteline.hex()
+    logging.debug(' Response from ' + self.strName +' = ' + strResponse)
+    if strResponse[0:4] != strCmdName[0:4]:
       logging.fatal(' PUMP: Communication returned back a value that was different from the one sent... Aborting program') 
+      logging.fatal(' PUMP: ' + strResponse[0:4] + " != " + strCmdName[0:4])
       raise ValueError("Command and response, do not match!")
       
-    logging.debug( ' READING ' + self.strName + ' line obtained ' + strLine )
-    #print( ' READING current ' + self.strName + ' value: ' + strLine )
-    logging.debug( ' READING current ' + self.strName + ' value: ' + strLine )
-
     # TODO: setting pump values OK???
-    self._value =  strLine
+    self._value =  strResponse
 
   def last(self) : 
     return self._value

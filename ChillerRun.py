@@ -171,7 +171,7 @@ class clsChillerRun :
         # pass the configuration of how the devices connection
         # to the device handler
         
-        self._istDevHdl = clsDevicesHandler( self._istConnCfg, strDevNameList,bolRunPseudo )
+        self._istDevHdl = clsDevicesHandler( self._istConnCfg, strDevNameList, bolRunPseudo )
 
         # interpretation of machine readable commands into human readable commands
         # and vice versa
@@ -202,7 +202,7 @@ class clsChillerRun :
     nAttempts = 0
     while bolCommandSent == False: #Send Command Loop
       try:  #Try to send a command if it fails or gives an error try again. After 3 fails it kills everything
-        self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara,fltTemps)
+        self._istDevHdl.readdevice( strdevname, strcmdname, strcmdpara, fltTemps)
         bolCommandSent = True
 
       except:
@@ -263,7 +263,7 @@ class clsChillerRun :
     print ("STARTING THERMO")
     #Connect to logger and initialize
     self.funcLoggingConfig(queue,intLoggingLevel)
-    self.funcInitialize(self,["Thermocouple"], bolRunPseudo,intStatusCode)
+    self.funcInitialize(self,["Thermocouple"], bolRunPseudo, intStatusCode)
 
     # Default values
     fltTUpperLimit =  50 # upper limit in C for liquid temperature
@@ -514,16 +514,14 @@ class clsChillerRun :
         self.sendcommand(self, 'aToggle',intStatusCode,fltTemps)
         logging.info('< RUNNING > Arduino Toggled')
         intSettings[Setting.TOGGLE] = False
+        time.sleep(6)
 
       #Do the idle thing (Read current RPS, Wait)
       else:
         self.sendcommand(self, 'aRPS?',intStatusCode,fltTemps)
         fltRps = istArduino.last()
         self.funcResetDog(Process.ARDUINO,intStatusArray)
-        if fltRps < 0.7:
-          logging.info( '<DATA> Arduino AprxFlRt = {:4.1f} l/min'.format( fltRps ) )
-        else:
-          logging.info( '<DATA> Arduino FlowRate = {:4.2f} l/min'.format( fltRps ) )
+        logging.info( '<DATA> Arduino FlowRate = {:4.2f} l/min'.format( fltRps ) )
         fltRPS[1] = float(fltRps)
         if intStatusCode.value > StatusCode.FATAL:
           break
@@ -531,7 +529,7 @@ class clsChillerRun :
         #TODO Add in a check for pump settings vs flow rate... 
         # probably not necessary until actuator valves are in
         
-        time.sleep(5)
+        time.sleep(2)
 
     logging.info('< RUNNING > Arduino finished shutdown. ') 
 
