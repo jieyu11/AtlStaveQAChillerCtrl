@@ -40,6 +40,7 @@ Dictionary of abbreviations: ---------------------------------------------------
 
 import serial             # Serial communications over USB ports.
 import logging            # Flexible event logging functions/classes.
+import time
 from enum import IntEnum  # Class to define enumerators.
 import random             # Generate pseuo-random numbers.
 
@@ -77,11 +78,15 @@ class clsArduino (clsDevice):
   def read(self, strCmdName, strCmdPara="",fltCurrentTemps=[]):
 
     logging.debug( self._strClassName + ' Sending command ' + strCmdName + ' to device ' + self.strName )
-    staveTemp = fltCurrentTemps[1]
+    staveTemp = fltCurrentTemps[3] #This should be the outflow
     
     if strCmdName == 'F':
-      rate = clsArduino.readFlowRate(self, staveTemp) #This can be made better
-      self._value = rate
+      rate1 = clsArduino.readFlowRate(self, staveTemp) #This can be made better
+      time.sleep(2)
+      rate2 = clsArduino.readFlowRate(self, staveTemp) #This can be made better
+      time.sleep(2) 
+      rate3 = clsArduino.readFlowRate(self, staveTemp) #This can be made better
+      self._value = (rate1+rate2+rate3)/3.
 
     elif strCmdName == 'V':
       bolTog = clsArduino.toggleValves(self)
@@ -117,10 +122,10 @@ class clsArduino (clsDevice):
     # This is only valid in the voltage region from 0.7-1.5 lower or higher values still use
     # the same formula, but if the formula would return a negative rate it is set to 0
 
-    VSlope = 1.1595
-    Toffset = -0.19053
-    TSlope = -0.0013591
-    TSqVal = 3.1417e-5
+    VSlope = 1.199
+    Toffset = -0.234
+    TSlope = -0.00236
+    TSqVal = 6.005e-5
 
     self._pdev.write(('F\n').encode())
     logging.debug(self._strClassName + ': Sent command F (read Flowrate) to Arduino')
@@ -137,6 +142,7 @@ class clsArduino (clsDevice):
       fltFlowRate = VSlope*fltFlowValue + correction
       if fltFlowRate < 0:
         fltFlowRate = 0.
+      logging.info("<Hidden> Arduino Voltage: "+str(round(fltFlowValue,3)))
     else:
       fltFlowRate = -1.0      
       logging.warning(' Received for flowrate: ' + strReturnText)
@@ -278,7 +284,9 @@ class clsPseudoArduino(clsPseudoDevice):
       fltFlowRate = 1.1 - 0.0013575 * fltCoolantTemp - 0.0992
     else:
       fltFlowRate = -1.0
-      
+
+
+    time.sleep(2)
     return fltFlowRate 
 
 # ------------------------------------------------------------------------------

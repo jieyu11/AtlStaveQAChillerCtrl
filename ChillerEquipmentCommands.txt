@@ -92,9 +92,10 @@ Status? : 010300170001340E         # Check if the pump is on
 Read : A  # Read humidity sensor.
 
 
-#  *** Commands for the Omega HH147U temperature logger meter. ***
+#  *** Commands for the Omega HH309A temperature logger meter. ***
 [Thermocouple]
-Read : AAB40110AB  # Read the four thermocouple sensors.
+Read : A # Reads the four thermocouple sensors
+#Read : AAB40110AB  # Read the four thermocouple sensors. (Old device HH147)
 
 [Arduino]
 RPS? : F      # Reads RPM voltage

@@ -36,7 +36,8 @@ History: ----------------------------------------------------------------------
   V1.4 - Jul-2018  Added code for the Arduino UNO to read the flow meter and control 
                    the three actuators at stave coolant I/O end.
   V2.0 - Aug-2018  Restructured code to 9 processes
-				   Updated comments and modified screen messages to operator.
+				   Updated comments and modified screen messages to operater.
+  V2.1 - Sep-2018  Replaced Omega HH147U with Omega HH109A.
 Environment: ------------------------------------------------------------------
 	This program is written in Python 3.6.  Python can be freely downloaded from 
 http://www.python.org/.  This program has been tested on PCs running Windows 10.
@@ -87,7 +88,7 @@ from ChillerRun import *     # This is our own code. States what each process do
 # Global data section ----------------------------------------------------------
 
 gblstrPyVersion = "3.6"    # Version of Python enterpreter used.
-gblstrCodeVersion = "2.0"  # Version of this Python program.
+gblstrCodeVersion = "2.1"  # Version of this Python program.
 
 # Define the upper & lower coolant temperature limits we expect to ever encounter.
 # The current coolant, 3m Novec HFE-7100, actual limits are: -135C to 61C.
@@ -102,7 +103,7 @@ gblfltBoostPumpLowerLimit = 1.0
 # Convert True/False boolean values to Yes/No text.
 gblstrNoYes = ['No','Yes']
   
-intLoggingLevel = logging.INFO # Set level for logger to report: DEBUG,INFO,WARNING,ERROR,CRITICAL.
+intLoggingLevel = logging.DEBUG # Set level for logger to report: DEBUG,INFO,WARNING,ERROR,CRITICAL.
 
 # The following two variables are used in ChillerCtrl.py and ChillerRun.py
 # Time format: %m = month, %d = day, %Y = year, %I = 12-hour, %M = minute, %S = seconds, %p = AM|PM

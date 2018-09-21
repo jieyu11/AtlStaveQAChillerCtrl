@@ -237,6 +237,8 @@ class clsChillerRun :
 
         if "TempReadings" in record.message: #Ignores reading out full temp log
           continue
+        elif "Hidden" in record.message:
+          continue
         else:
           print(record.asctime + " "+ record.levelname+" "+record.message) # Prints the log to the screen
       except Exception:
@@ -304,11 +306,11 @@ class clsChillerRun :
     # kill the process if the global status is more serious than an SHUTDOWN
     while ( intStatusCode.value < StatusCode.KILLED) : 
       self.funcResetDog(Process.TEMP_REC,intStatusArray)
-      # read thermocouple data, every read takes ~25 seconds for 29 data points
-      self.sendcommand(self,'tRead',intStatusCode,fltTemps)
-
-      for idata in range( intDataPerRead ) :
-          fltTempTup = list( istThermocouple.last( idata) ) 
+      # read thermocouple data, every other second
+      
+      for idata in range(15) :
+          self.sendcommand(self,'tRead',intStatusCode,fltTemps)
+          fltTempTup = list( istThermocouple.last() ) 
           logging.info( '<DATA> TempReadings T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f} '.format( \
                         fltTempTup[0], fltTempTup[1], fltTempTup[2], fltTempTup[3]) ) 
 
@@ -328,6 +330,7 @@ class clsChillerRun :
             logging.error( self._strclassname + ' liquid temperature '+ self._fltTempLiquid +
                            ' > upper limit ' + fltTUpperLimit + '! Return! ') 
             intStatusCode.value = StatusCode.ERROR
+          time.sleep(2)
       logging.info('<DATA> Temps TSet: {:5.2f}, TRes: {:5.2f}, T1: {:5.2f}, T2: {:5.2f}, T3: {:5.2f}, T4: {:5.2f}'.format( \
                     fltTemps[0],fltTemps[1],fltTemps[2],fltTemps[3],fltTemps[4],fltTemps[5],fltTemps[6],fltTemps[7]) )
     # after finishing running
@@ -554,13 +557,12 @@ class clsChillerRun :
         if intSettings[Setting.TCHANGE] == True and bolWaitInput == True:
           self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput)
     try:
-      intStopTemp = int(self._istRunCfg.get( name, 'StopTemperature'))
+      intStopTemp = int(self._istRunCfg.get( 'Chiller', 'StopTemperature'))
       fltRunRPM = float(self._istRunCfg.get('Pump','RunRPM'))
     except:
       logging.warning("< RUNNING > Missing chiller StopTemperature and RunRPM, using 22 and 22 respectively")
       intStopTemp = 22
       fltRunRPM = 22.
-
 
     if bolRoutine == True:
 
