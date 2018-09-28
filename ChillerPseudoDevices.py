@@ -119,7 +119,7 @@ class clsPseudoThermocouple ( clsPseudoDevice ):
     self._intDataPoint =  4 # 4 thermocouple
     # temperature data in 2D: [29][4]
     # initialized with 0. refer as [i][j]
-    self._temperaturedata =  [[0 for x in range( self._intDataPoint )] for y in range( self._intDataLines )]
+    self._temperaturedata =  [0,0,0,0]
 
 # ----------------------------
   def read(self, strcmdname, strcmdpara="",fltCurrentTemps=[]):
@@ -127,44 +127,38 @@ class clsPseudoThermocouple ( clsPseudoDevice ):
       Thermocouple: function of reading data
     """
     # to mimic the real case, reading the thermocouple data takes around 25 seconds
-    time.sleep( 25 )
-
+    time.sleep( 0.3 )
+	
     #Starting Temperature Conditions
+    fltOldSetValue = fltCurrentTemps[0]
+    TResOld = fltCurrentTemps[1]
     TinOld = fltCurrentTemps[2]
     ToutOld = fltCurrentTemps[3]
     TboxOld = fltCurrentTemps[4]
     TroomOld = fltCurrentTemps[5]
-    fltOldSetValue = fltCurrentTemps[0]
 
     #Create a new second of temp data
-    for Lidx in range( self._intDataLines ) :
-
-      TempPercentChange = 0.05 * random.random() # How much the fluid temperature going to the stave changes each second
-      OffsetPercent = 0.05                       # Offset percentage that the outflowing fluid is
-
-      # A statement to see if we are cooling or heating the stave
-      if fltCurrentTemps[0] > fltOldSetValue:
-        Offset = OffsetPercent
-      else:
-        Offset = -OffsetPercent
-        
-      # Generating the individual data from Old data
-      Tin   = TinOld *( 1- TempPercentChange)+ fltCurrentTemps[0]*TempPercentChange  
-      Tout  = ToutOld*(1- TempPercentChange*2)+TinOld*TempPercentChange*2
-      Troom = TroomOld + 0.001 * random.random()
-      Tbox  = TboxOld + (((Tin+Tout)/2)-TboxOld)*0.001*random.random()
-      # Saving the data to _temperaturedata
-      self._temperaturedata[ Lidx ][0] = Tin
-      self._temperaturedata[ Lidx ][1] = Tout
-      self._temperaturedata[ Lidx ][2] = Tbox
-      self._temperaturedata[ Lidx ][3] = Troom  
-      # Saving the data to Olddata
-      TinOld = Tin
-      ToutOld = Tout
-      TboxOld = Tbox
-      TroomOld = Troom
-      fltOldSetValue = fltCurrentTemps[0]
-
+    TempPercentChange = 0.05 * random.random() # How much the fluid temperature going to the stave changes each second
+    OffsetPercent = 0.05                       # Offset percentage that the outflowing fluid is
+    
+    # A statement to see if we are cooling or heating the stave
+    if fltOldSetValue > TinOld:
+      Offset = OffsetPercent
+    else:
+      Offset = -OffsetPercent
+    # Generating the individual data from Old data
+    #TRes  = TResOld*( 1- TempPercentChange)+ fltCurrentTemps[0]*TempPercentChange
+    Tin   = TinOld *( 1- TempPercentChange*2)+ TResOld*TempPercentChange*2  
+    Tout  = ToutOld*(1- TempPercentChange*4)+TinOld*TempPercentChange*4
+    Troom = TroomOld + 0.001 * random.random()
+    Tbox  = TboxOld + (((Tin+Tout)/2)-TboxOld)*0.0005*random.random()
+  
+    # Saving the data to _temperaturedata
+    self._temperaturedata[0] = Tin
+    self._temperaturedata[1] = Tout
+    self._temperaturedata[2] = Tbox
+    self._temperaturedata[3] = Troom
+	
 # ----------------------------
   def last(self, lineIdx = 28) :
     """
@@ -179,7 +173,7 @@ class clsPseudoThermocouple ( clsPseudoDevice ):
                        '!! set to ' + str(self._intDataLines - 1) + '.' )
       lineIdx = self._intDataLines - 1
 
-    return tuple( self._temperaturedata[lineIdx] )
+    return tuple( self._temperaturedata )
 # ------------------------------------------------------------------------------
 # Class Chiller (inherited device) ---------------------------------------------
 class clsPseudoChiller ( clsPseudoDevice ):
@@ -202,10 +196,13 @@ class clsPseudoChiller ( clsPseudoDevice ):
     # chiller temperature -45 +55
     #Mimics approximate Chiller Communication Time
     time.sleep(2.2)
+	
+    TResOld = fltCurrentTemps[1]
     TSet = fltCurrentTemps[0]
-    TIn = fltCurrentTemps[2]
+    TempPercentChange = 0.3*random.random()
+    TRes  = TResOld*( 1- TempPercentChange)+ TSet*TempPercentChange
 
-    self._value = TSet*.5 + TIn*.5
+    self._value = round(TRes,4)
 
 # ----------------------------
   def last(self) :

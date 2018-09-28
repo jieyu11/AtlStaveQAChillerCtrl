@@ -288,7 +288,6 @@ class clsChiller ( clsDevice ):
   def last(self) :
     return self._value
     
-    
 # ------------------------------------------------------------------------------
 # --------------------------- Booster pump class -------------------------------
 class clsPump ( clsDevice ):
@@ -303,7 +302,6 @@ class clsPump ( clsDevice ):
     self.fltRPSmax = 40.0
     self.fltRPSdefault = 12.0
     self._value = 0
-
 
 # ------------------------------------------------------------------------------
   def read(self, strCmdName, strCmdParam="", fltCurrentTemps=[]):

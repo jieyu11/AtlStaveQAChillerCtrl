@@ -103,7 +103,7 @@ gblfltBoostPumpLowerLimit = 1.0
 # Convert True/False boolean values to Yes/No text.
 gblstrNoYes = ['No','Yes']
   
-intLoggingLevel = logging.DEBUG # Set level for logger to report: DEBUG,INFO,WARNING,ERROR,CRITICAL.
+intLoggingLevel = logging.INFO # Set level for logger to report: DEBUG,INFO,WARNING,ERROR,CRITICAL.
 
 # The following two variables are used in ChillerCtrl.py and ChillerRun.py
 # Time format: %m = month, %d = day, %Y = year, %I = 12-hour, %M = minute, %S = seconds, %p = AM|PM
@@ -227,14 +227,14 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
           print(f"   Process: {p.name}  PID: {str(p.pid).zfill(5)}  ALIVE: " \
               + f"{gblstrNoYes[(p.is_alive())]}  PStatus: {strStatusVals[intProcessStates[i]]}")
           i+=1
-      if intStatusCode.value == StatusCode.OK:
-        fltRunningTime = round((time.time()-gblstrStartTimeVal)/60, 2)
-        intDays, intHours, fltMins = lstDeltaTime(fltRunningTime)
-        print("\n    Loop Progress: " + str(fltProgress.value) + '%')
-        print(" Program Started: " + str(gblstrStartTime))
-        print(f" Current Run Time: {intDays} days, {intHours} hours, {fltMins} minutes")
+
+      fltRunningTime = round((time.time()-gblstrStartTimeVal), 2)
+      intDays, intHours, fltMins = lstDeltaTime(fltRunningTime)
+      print("\n    Loop Progress: " + str(fltProgress.value) + '%')
+      print(" Program Started: " + str(gblstrStartTime))
+      print(f" Current Run Time: {intDays} days, {intHours} hours, {fltMins} minutes")
         
-      if intStatusCode.value > StatusCode.OK:
+      if fltProgress.value >= 100:
         print(" Loop Progress: Finished")
       elif fltProgress.value > 0.0:
         fltRunningTime = round(fltRunningTime/fltProgress.value, 2)
@@ -249,6 +249,7 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
       print(" Humidity: " + str(round(fltHumidity.value, 2)) + " %")
       print(" Pump Set: " + str(fltRPS[0])+ " rps")
       print(" FlowRate: " + str(round(fltRPS[1],3))+ " l/min")
+
     elif 'tav' in strVal:                       # Found actuator valve toggle command.
       print(f"Actuator valves switched to other state.")
       intSettings[Setting.TOGGLE] = True
@@ -515,6 +516,11 @@ def main():
                              args =(clsChillerRun, queue, intStatusCode, intProcessStates, intSettings, fltTemps, fltHumidity, \
                                     intLoggingLevel, bolRunPseudo)))
 
+  # The Arduino process reads the RPS data and changes valve settings.
+  mpList.append(mp.Process(target = clsChillerRun.procArduino, name = 'Arduino ', \
+                             args =(clsChillerRun,queue,intStatusCode,intProcessStates, intSettings, fltTemps, \
+                                    fltRPS, intLoggingLevel, bolRunPseudo)))
+
   # The Chiller  process runs the chiller and reads chiller reservoir temp.
   mpList.append(mp.Process(target = clsChillerRun.chillerControl, name = 'Chiller ', \
                              args =(clsChillerRun, queue, intStatusCode, intProcessStates, intSettings, fltTemps, \
@@ -524,12 +530,6 @@ def main():
   mpList.append(mp.Process(target = clsChillerRun.pumpControl, name = 'BstrPump', \
                              args =(clsChillerRun, queue, intStatusCode, intProcessStates, intSettings, \
                                     fltTemps, fltRPS, intLoggingLevel, bolRunPseudo)))
-
-
-  # The Arduino process reads the RPS data and changes valve settings.
-  mpList.append(mp.Process(target = clsChillerRun.procArduino, name = 'Arduino ', \
-                             args =(clsChillerRun,queue,intStatusCode,intProcessStates, intSettings, fltTemps, \
-                                    fltRPS, intLoggingLevel, bolRunPseudo)))
 
   # The Routine process controls the Booster Pump and Chiller
   mpList.append(mp.Process(target = clsChillerRun.procRoutine, name = 'Routine ', \

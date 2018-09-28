@@ -75,8 +75,8 @@ class clsArduino (clsDevice):
     self._lstValveState = ['Open', 'Close']   # Possible states of valves.
     self._value = 0
 
-  def read(self, strCmdName, strCmdPara="",fltCurrentTemps=[]):
-
+  def read(self, strCmdName, strCmdPara="",fltTempsfltRPS=[[],[]]):
+    fltCurrentTemps = fltTemps[0]
     logging.debug( self._strClassName + ' Sending command ' + strCmdName + ' to device ' + self.strName )
     staveTemp = fltCurrentTemps[3] #This should be the outflow
     
@@ -142,7 +142,7 @@ class clsArduino (clsDevice):
       fltFlowRate = VSlope*fltFlowValue + correction
       if fltFlowRate < 0:
         fltFlowRate = 0.
-      logging.info("<Hidden> Arduino Voltage: "+str(round(fltFlowValue,3)))
+      logging.info("<HIDDEN> Arduino Voltage: "+str(round(fltFlowValue,3)))
     else:
       fltFlowRate = -1.0      
       logging.warning(' Received for flowrate: ' + strReturnText)
@@ -250,10 +250,12 @@ class clsPseudoArduino(clsPseudoDevice):
     self._value = 5 
     random.seed()   # Initalize the random number generator.
 
-  def read(self, strCmdName, strCmdPara="",fltCurrentTemps=[]):
+  def read(self, strCmdName, strCmdPara="",fltTempsfltRPS=[[],[]]):
+    fltCurrentTemps = fltTempsfltRPS[0]
+    fltRPS = fltTempsfltRPS[1]
 
     logging.debug( self._strClassName + ' Sending command ' + strCmdName + ' to device ' + self.strName )
-    staveTemp = fltCurrentTemps[1]
+    staveTemp = fltCurrentTemps[3]
 
     if strCmdName == 'F':
       rate = clsPseudoArduino.readFlowRate(self, staveTemp) #This can be made better
@@ -280,8 +282,10 @@ class clsPseudoArduino(clsPseudoDevice):
     '''
  
     fltNum = random.random()
-    if fltNum < 0.9:             # Operation OK.
-      fltFlowRate = 1.1 - 0.0013575 * fltCoolantTemp - 0.0992
+    if fltNum < 0.99:             # Operation OK.
+      fltVoltage = random.random()*0.05+ 1.
+      fltFlowRate = -0.19 + 1.18*fltVoltage - 0.0019*fltCoolantTemp +2.6e-5*fltCoolantTemp*fltCoolantTemp
+      logging.info("<HIDDEN> Arduino Voltage: "+str(round(fltNum,3)))
     else:
       fltFlowRate = -1.0
 

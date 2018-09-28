@@ -53,7 +53,7 @@ TIMEOUT   =  0      #0: read immediately, None: wait forever, X: wait X s
 #  *** Configuration for Omega HH314A Humidity meter. ***
 [Humidity]
 #    Computer USB port settings:  9600 baud, 8bit, 1 stop, no parity.
-PORT      =  COM11  #USB port connected to humidity meter.
+PORT      =  COM3  #USB port connected to humidity meter.
 BAUD      =  9600   #Set the baud rate to match the meter.
 BITS      =  8      #Set the number of data bits.
 PARITY    =  None   #Set the parity bit to match meter.
@@ -64,7 +64,7 @@ TIMEOUT   =  0      #0: read immediately, None: wait forever, X: wait X s
 #  *** Configuration for Omega HH147U temperature data logger. ***
 [Thermocouple]
 #    Computer USB port settings:  9600 baud, 8bit, 1 stop, no parity.
-PORT      =  COM22  #USB port connected to temperature meter.
+PORT      =  COM5  #USB port connected to temperature meter.
 BAUD      =  9600   #Set the baud rate to match the meter.
 BITS      =  8      #Set the number of data bits.
 PARITY    =  None   #Set the parity bit to match meter.

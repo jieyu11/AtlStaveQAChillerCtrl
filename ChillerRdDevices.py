@@ -92,14 +92,14 @@ class clsDevicesHandler:
         if bolRunPseudo == True: 
           self.__dictDevices[ strDevName ] = clsPseudoChiller(strDevName)
         else:
-          #self.__dictDevices[ strDevName ] = clsPseudoChiller(strDevName)
-          self.__dictDevices[ strDevName ] = clsChiller(strDevName, strPort, intBaud)
+          self.__dictDevices[ strDevName ] = clsPseudoChiller(strDevName)
+          #self.__dictDevices[ strDevName ] = clsChiller(strDevName, strPort, intBaud)
       elif strDevName == 'Pump':
         if bolRunPseudo == True: 
           self.__dictDevices[ strDevName ] = clsPseudoPump(strDevName)
         else:
-          #self.__dictDevices[ strDevName ] = clsPseudoPump(strDevName)
-          self.__dictDevices[ strDevName ] = clsPump(strDevName, strPort, intBaud)
+          self.__dictDevices[ strDevName ] = clsPseudoPump(strDevName)
+          #self.__dictDevices[ strDevName ] = clsPump(strDevName, strPort, intBaud)
       elif strDevName == 'Humidity':
         if bolRunPseudo == True: 
           self.__dictDevices[ strDevName ] = clsPseudoHumidity(strDevName)
@@ -114,16 +114,17 @@ class clsDevicesHandler:
         if bolRunPseudo == True:
           self.__dictDevices[strDevName] = clsPseudoArduino(strDevName)
         else:
-          self.__dictDevices[strDevName] = clsArduino(strDevName, strPort, intBaud)
+          self.__dictDevices[strDevName] = clsPseudoArduino(strDevName)
+		  #self.__dictDevices[strDevName] = clsArduino(strDevName, strPort, intBaud)
       else:
         logging.error( ' Device name: ' + strDevName + ' not found! ')
 
-  def readdevice(self, strDevName, strCmdName, strCmdPara, fltCurrentTemps) :
+  def readdevice(self, strDevName, strCmdName, strCmdPara, fltGblArray) :
     """
       function to read from one of the devices through device name
       and command name
     """
-    self.__dictDevices[ strDevName ].read( strCmdName, strCmdPara, fltCurrentTemps) 
+    self.__dictDevices[ strDevName ].read( strCmdName, strCmdPara, fltGblArray) 
 
   def getdevice(self, strDevName) :
     """

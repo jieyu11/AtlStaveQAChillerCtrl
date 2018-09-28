@@ -89,6 +89,7 @@ def ReadLine( Line,fltStartTime):
   Hum = ' '
   TH1 = ' '
   TH2 = ' '
+  Volt = ' '
 
   RUN = '0' # No routine notification
             # 1 Notification that is not determined
@@ -112,7 +113,8 @@ def ReadLine( Line,fltStartTime):
         string = string.strip(' \n')
         TRes = string
         #print(TRes)
-      else: #Temp from temperature logger
+
+      else: #Temp from temperature logger old
         string = Line.strip('TempReadings \n')
         string = string.split(',')
         T1 = string[0].split(':')[-1]
@@ -140,6 +142,21 @@ def ReadLine( Line,fltStartTime):
       TH2 = string[2].split(':')[-1]
       #print(Hum)
 
+  if 'HIDDEN' in Line:
+    Line = Line.split("<HIDDEN>")[-1]
+
+    if 'Arduino' in Line:
+      string = Line.split(':')[-1]
+      string = string.strip(' \n')
+      Volt = string
+    elif 'TempReadings' in Line:
+      string = Line.strip('TempReadings \n')
+      string = string.split(',')
+      T1 = string[0].split(':')[-1]
+      T2 = string[1].split(':')[-1]
+      T3 = string[2].split(':')[-1]
+      T4 = string[3].split(':')[-1]
+	    
   if 'RUNNING' in Line:
     Line = Line.split("< RUNNING >")[-1]
     
@@ -185,7 +202,7 @@ def ReadLine( Line,fltStartTime):
     TStave = str((float(T1)+float(T2))/2.)
       
 
-  strLine =str(fltStartTime)+','+str(fltTime)+','+TSet+','+TRes+','+T1+','+T2+','+T3+','+T4+','+Hum+','+RPS+','+FlowRate+','+TH1+','+TH2+','+TStave+','+RUN+','+str(int(Toggle))
+  strLine =str(fltStartTime)+','+str(fltTime)+','+TSet+','+TRes+','+T1+','+T2+','+T3+','+T4+','+Hum+','+Volt+','+RPS+','+FlowRate+','+TH1+','+TH2+','+TStave+','+RUN+','+str(int(Toggle))
   return strLine
 
 # -----------------------------------------------------------------------------
@@ -224,7 +241,7 @@ def main():
   fltStartTime = GetTime(Line)
   #Creates a new output csv file with initial conditions  
   outputFile = open('output.csv','w')  
-  Startline = 'absTime[s],relTime[min],Tset[C],TRes[C],T1[C],T2[C],T3[C],T4[C],THum[%],RPS[rps],FlowRate[l/min],TH1[C],TH2[C],TStave[C],RUN,Toggle[bol]\n' 
+  Startline = 'absTime[s],relTime[min],Tset[C],TRes[C],T1[C],T2[C],T3[C],T4[C],THum[%],FlowMeter[V],RPS[rps],FlowRate[l/min],TH1[C],TH2[C],TStave[C],RUN,Toggle[bol]\n' 
   outputFile.write(Startline)
   outputFile.close()
   #Opens the csv file to append our data to it
