@@ -57,6 +57,7 @@ class SysSettings (IntEnum) :
     This defines the first value of the global intSettings, which keeps track
     of the individual processes.
   """
+  BOOT     = -1 #System is establishing connections, all processes wait until this is done
   START     = 0 # System is starting
   ROUTINE   = 1 # System is running a routine
   HWAIT     = 2 # System is waiting for the humidity to decrease
@@ -259,7 +260,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Temperature Process ----------------------------------------------------------
-  def recordTemperature(self,queue,intStatusCode,intStatusArray,fltTemps,intLoggingLevel,bolRunPseudo) :
+  def recordTemperature(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps,intLoggingLevel,bolRunPseudo) :
     """
       recording temperatures of ambient, box, inlet, outlet from the thermocouples
     """
@@ -303,6 +304,10 @@ class clsChillerRun :
       intStatusCode.value >= StatusCode.ABORT
       return
 
+    #wait until all programs have initiallized
+    while intSettings[Setting.STATE] == SysSettings.BOOT:
+      time.sleep(1)
+
     # keep reading data until the process is killed or 
     # kill the process if the global status is more serious than an SHUTDOWN
     while ( intStatusCode.value < StatusCode.KILLED) : 
@@ -345,9 +350,7 @@ class clsChillerRun :
     # Connect to logger and initialize
     self.funcLoggingConfig(queue,intLoggingLevel) 
     self.funcInitialize(self,["Humidity"], bolRunPseudo,intStatusCode)
-
-    time.sleep(20) # Wait
-
+    
     #Default values
     fltStopUpperLimit = 5.0 # upper limit in % for humidity to stop the system
     fltWarnUpperLimit = 2.0 # upper limit in % for humidity to warn the system
@@ -371,6 +374,11 @@ class clsChillerRun :
   
     oldSetting = [0,0] #Initial conditions
 
+    #wait until all programs have initiallized
+    while intSettings[Setting.STATE] == SysSettings.BOOT:
+      time.sleep(1)
+
+    #Humidity Process
     while(intStatusCode.value < StatusCode.KILLED ) :
       self.funcResetDog(Process.HUMI_REC,intStatusArray)
 
@@ -424,6 +432,10 @@ class clsChillerRun :
     self.funcInitialize(self,["Chiller"], bolRunPseudo,intStatusCode)
     istTemp = self._istDevHdl.getdevice( 'Chiller' )
 
+    #wait until all programs have initiallized
+    while intSettings[Setting.STATE] == SysSettings.BOOT:
+      time.sleep(1)
+
     #Turn on Chiller
     self.sendcommand(self, 'cStart',intStatusCode,fltTemps)
     logging.info ( self._strclassname + ' Chiller started. ')
@@ -469,6 +481,10 @@ class clsChillerRun :
     self.funcLoggingConfig(queue,intLoggingLevel) 
     self.funcInitialize(self,["Pump"], bolRunPseudo,intStatusCode)
 
+    #wait until all programs have initiallized
+    while intSettings[Setting.STATE] == SysSettings.BOOT:
+      time.sleep(1)
+
     #Turn on Pump
     StartComs = ['iUnlockDrive','iUnlockParameter','iRPS=10','iStart']
     for Command in StartComs:
@@ -510,8 +526,13 @@ class clsChillerRun :
     # Connect to arduino UNO and initialize
     self.funcLoggingConfig(queue, intLoggingLevel)
     self.funcInitialize(self,["Arduino"],bolRunPseudo,intStatusCode)
-
     istArduino = self._istDevHdl.getdevice( 'Arduino' )
+
+    #wait until all programs have initiallized
+    while intSettings[Setting.STATE] == SysSettings.BOOT:
+      time.sleep(1)
+
+    #Main Arduino Process
     while intStatusCode.value < StatusCode.KILLED:
       #Change valve state
       if intSettings[Setting.TOGGLE] == True:
@@ -560,6 +581,11 @@ class clsChillerRun :
       intStartTemp =20
       intStopTemp = 22
       fltRunRPM = 22.
+
+    #wait until all programs have initiallized
+    while intSettings[Setting.STATE] == SysSettings.BOOT:
+      time.sleep(1)
+
     #Tell the devices to go to start conditions
     fltRPS[0] = fltRunRPM
     intSettings[Setting.PCHANGE] = True
@@ -875,12 +901,16 @@ class clsChillerRun :
 
     strProcesses = [process.name for process in procShortList]
 
-    #strProcesses = ['Listener','Temperature Recorder','Humidity Recorder','Chiller','Pump','Arduino','Routine']
+    #strProcesses = ['Listener','Temperature Recorder','Humidity Recorder','Arduino','Chiller','Pump','Routine']
     intCurrentState = [ProcessState.OK]*(len(strProcesses))
     sentMessage = False # Only want to send one email...
 
     intFrostCounter = 0 
     maxFrostTime = 60
+
+    #wait until all programs have initiallized
+    while intSettings[Setting.STATE] == SysSettings.BOOT:
+      time.sleep(1)
 
     #The main watchdog loop ------------
     while intStatusCode.value < StatusCode.DONE:      

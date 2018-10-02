@@ -232,14 +232,14 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
       intDays, intHours, fltMins = lstDeltaTime(fltRunningTime)
       print("\n    Loop Progress: " + str(fltProgress.value) + '%')
       print(" Program Started: " + str(gblstrStartTime))
-      print(f" Current Run Time: {intDays} days, {intHours} hours, {fltMins} minutes")
+      print(f" Current Run Time: {intDays} days, {intHours} hours, {round(fltMins,3)} minutes")
         
       if fltProgress.value >= 100:
         print(" Loop Progress: Finished")
       elif fltProgress.value > 0.0:
         fltRunningTime = round(fltRunningTime/fltProgress.value, 2)
         intDays, intHours, fltMins = lstDeltaTime(fltRunningTime)
-        print(f" Estimated loop time remaining:{intDays} days,{intHours} hours, {fltMins} minutes")
+        print(f" Estimated loop time remaining:{intDays} days,{intHours} hours, {round(fltMins,3)} minutes")
       print("\n Current Temps")
       i = 0
       strTempNames = ["TSet","TRes","Tin ","Tout","Tbox","Troo","Thum1","Thum2"]
@@ -484,7 +484,7 @@ def main():
   #   Current process are: [listener, temp, humidity, chiller, bst pump, Arduino, routine]
   intProcessStates = Array('i',[ intOK,intOK,intOK,intOK,intOK,intOK,intOK])
 
-  intSettings = Array('i',[SysSettings.START,False,False,0]) #  intSettings[0] = Current system setting
+  intSettings = Array('i',[SysSettings.BOOT,False,False,0])  #  intSettings[0] = Current system setting
                                                              #  intSettings[1] = Need to change TSet?
                                                              #  intSettings[2] = Need to change PSet?
                                                              #  intSettings[3] = Valve Setting?
@@ -508,7 +508,7 @@ def main():
 
   # The Temp Rec process reads temperature data from the Temp Recorder.
   mpList.append(mp.Process(target = clsChillerRun.recordTemperature, name = 'Temp Rec', \
-                             args =(clsChillerRun, queue, intStatusCode, intProcessStates, fltTemps, \
+                             args =(clsChillerRun, queue, intStatusCode, intProcessStates, intSettings, fltTemps, \
                                     intLoggingLevel, bolRunPseudo)))
 
   # The Humi Rec process reads humidity data from the Humidity Recorder.
@@ -560,6 +560,7 @@ def main():
     time.sleep(0.5) #TODO Temporary
     print("\n---------------------------------------------------------------------------")
  
+  intSettings[Setting.STATE] = SysSettings.START
   # Depending if operating live or pseudo (simulation), print the correct notice.
   if bolRunPseudo:
     print("\n\n  ******************* Begin Simulation operations *******************")

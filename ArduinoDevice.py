@@ -76,7 +76,7 @@ class clsArduino (clsDevice):
     self._value = 0
 
   def read(self, strCmdName, strCmdPara="",fltTempsfltRPS=[[],[]]):
-    fltCurrentTemps = fltTemps[0]
+    fltCurrentTemps = fltTempsfltRPS[0]
     logging.debug( self._strClassName + ' Sending command ' + strCmdName + ' to device ' + self.strName )
     staveTemp = fltCurrentTemps[3] #This should be the outflow
     
