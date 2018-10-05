@@ -202,7 +202,7 @@ class clsThermocouple ( clsDevice ):
       offset +=4
       logging.debug(Temps[i])
       if Temps[i] > 3276.8: #Twos complement for negatives... ugh
-        Temps[i] = Temp[i]-6553.6
+        Temps[i] = Temps[i]-6553.6
 
     logging.debug("converted: "+str(Temps))
     self._temperaturedata = Temps
@@ -218,7 +218,7 @@ class clsThermocouple ( clsDevice ):
 
 # ------------------------------------------------------------------------------
 class clsChiller ( clsDevice ):
-  def __init__(self, strName, strPort, intBaud, bytesize=8, parity='N', stopbits=1, timeout=2):
+  def __init__(self, strName, strPort, intBaud, bytesize=7, parity='N', stopbits=1, timeout=2):
     """
       Device: Chiller, function of initialization
     """
