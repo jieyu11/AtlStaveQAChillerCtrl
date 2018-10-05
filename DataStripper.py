@@ -226,15 +226,13 @@ def main():
     for i in range(1,nargv):
       inputfiles.append(sys.argv[i])  
 
-  strLogName = inputfiles[0]
-  #strLogName = str(input('Type the name of the file you wish to use: \n'))
-  #strLogName = "../2018-09-04_10-12AM_ChillerRun(TestStave1).log"
+  strStartFile = inputfiles[0]
   
   #Load in the file  
   try:
-    inputFile = open(strLogName,'r')
+    inputFile = open(strStartFile,'r')
   except:
-    print("Data file "+ strLogName + " not found! Plotting last output in memory!")
+    print("Data file "+ strStartFile + " not found! Plotting last output in memory!")
     return 
  
   Line = inputFile.readline()
@@ -244,6 +242,7 @@ def main():
   Startline = 'absTime[s],relTime[min],Tset[C],TRes[C],T1[C],T2[C],T3[C],T4[C],THum[%],FlowMeter[V],RPS[rps],FlowRate[l/min],TH1[C],TH2[C],TStave[C],RUN,Toggle[bol]\n' 
   outputFile.write(Startline)
   outputFile.close()
+  inputFile.close()
   #Opens the csv file to append our data to it
   outputFile = open('output.csv','a')
   
@@ -252,18 +251,25 @@ def main():
   i=0
   
   # Reads the input file and makes a data list
-  for line in inputFile:
+  for file in inputfiles:
     try:
-      strLine = ReadLine(line,fltStartTime)
+      inputFile = open(file,'r')
     except:
       continue
-    if strLine != None:
-      DataLine = strLine.split(',') #Takes the string line and reads it as a list
-      DataLine[1] = float(DataLine[1])#Converts the second data point(relative time) to a float
-      DataList.append(tuple(DataLine)) # converts each line to a tuple 
-      i+=1
-    if intCounter == 0:
-      intCounterReset()
+    for line in inputFile:
+
+      try:
+        strLine = ReadLine(line,fltStartTime)
+      except:
+        continue
+      if strLine != None:
+        DataLine = strLine.split(',') #Takes the string line and reads it as a list
+        DataLine[1] = float(DataLine[1])#Converts the second data point(relative time) to a float
+        DataList.append(tuple(DataLine)) # converts each line to a tuple 
+        i+=1
+      if intCounter == 0:
+        intCounterReset()
+    inputFile.close()
 
   #Sorts the data by the time value
   DataListSorted = sorted(DataList,key =lambda data: data[1]) 
