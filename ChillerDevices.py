@@ -291,7 +291,7 @@ class clsChiller ( clsDevice ):
 # ------------------------------------------------------------------------------
 # --------------------------- Booster pump class -------------------------------
 class clsPump ( clsDevice ):
-  def __init__(self, strName, strPort, intBaud, bytesize=8, parity='N', stopbits=1, timeout=1):
+  def __init__(self, strName, strPort, intBaud, bytesize=8, parity='N', stopbits=2, timeout=0):
     """
       Initialize booster pump inverter (i.e. controller) serial protocol and define the 
       boundries of the frequency (i.e. RPS) we will allow the booster pump to run.

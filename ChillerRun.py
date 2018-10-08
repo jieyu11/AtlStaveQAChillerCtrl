@@ -489,7 +489,7 @@ class clsChillerRun :
     StartComs = ['iUnlockDrive','iUnlockParameter','iRPS=10','iStart']
     for Command in StartComs:
       self.sendcommand(self, Command,intStatusCode,fltTemps,fltRPS)
-      time.sleep(1)
+      time.sleep(5)
     logging.info('< RUNNING > Pump Set RPS: 10')
     logging.info ( self._strclassname + ' Pump started. ')
 
@@ -508,8 +508,9 @@ class clsChillerRun :
       #Do the idle thing(Check Pump, Wait)
       else:
         self.sendcommand(self, 'iStatus?', intStatusCode,fltTemps,fltRPS)
+        time.sleep(1)
         if intStatusCode.value > StatusCode.ERROR: break
-        time.sleep(5) #This may not be necessary
+        time.sleep(4) #This may not be necessary
         self.funcResetDog(Process.PUMP,intStatusArray)
 
     #Shutdown pump
@@ -674,7 +675,7 @@ class clsChillerRun :
          (intSettings[Setting.STATE] == SysSettings.WAIT or intSettings[Setting.STATE] == SysSettings.HWAIT):
       time.sleep(5)
       self.funcResetDog(Process.ROUTINE,intStatusArray)
-      if intSettings[Setting.TCHANGE] == True and bolWaitInput == True:
+      if intSettings[Setting.TCHANGE] == True:
         self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput)
 
     #Shutdown -----------------------------------

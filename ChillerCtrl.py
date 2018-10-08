@@ -460,7 +460,7 @@ def main():
     if bolRoutine == True:
       bolWaitInput = waitInput()  # Ask whether to run autonomous routine.
     else:
-      bolWaitInput = True
+      bolWaitInput = False
     bolSendEmail = sendEmail()  # Ask whether to send information emails to people.
     
     # Regurgitate back to user the options chosen.  Give user chance to modify.
