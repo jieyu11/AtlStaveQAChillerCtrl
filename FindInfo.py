@@ -89,7 +89,7 @@ def main():
 
   print("\n\tLOADED: "+filename)
   print("\tTime  : "+strTime)
-  print("\tDur.  : "+strDuration+"\n")
+  print("\tDur.  : "+strDuration)
 
   #Load in the input csv
   try:
@@ -186,6 +186,8 @@ def main():
       varUnit = ""
 
     #Print it out for each variable
+    if var == 0:
+      print("\tnPts  : "+str(nPoints)+"\n")
     print("{0:>10}: {1:>8} +/- {2:<6} {3}".format(varName,str(round(avgVal,2)),str(round(stdDev,2)),varUnit))
 
 if __name__  == '__main__' :
