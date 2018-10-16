@@ -319,6 +319,7 @@ class clsPump ( clsDevice ):
       logging.debug('READ:    sent command ' + strCmdName + ' to ' + self.strName)
       if '?' in strCmdName:
         print("#TODO check pump output convert")
+      time.sleep(1)
 		
 	# Here we deal with commands that have a parameter and needs to calculate the CRC
 	# for a correct command to send to the device. Also look for the '=' sign as this
@@ -353,6 +354,7 @@ class clsPump ( clsDevice ):
       theCommand = strCommand + strHexCRC.upper()
       self._pdev.write( bytes.fromhex(theCommand) )
       logging.debug('READ: full command sent: ' + theCommand )
+      time.sleep(1)
     
     byteline = self._pdev.readline(20)
     strResponse = byteline.hex()

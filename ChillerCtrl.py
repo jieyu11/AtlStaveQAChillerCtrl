@@ -230,15 +230,15 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
 
       fltRunningTime = round((time.time()-gblstrStartTimeVal), 2)
       intDays, intHours, fltMins = lstDeltaTime(fltRunningTime)
-      print("\n    Loop Progress: " + str(fltProgress.value) + '%')
+      print("\n    Loop Progress: " + str(round(fltProgress.value,2)) + '%')
       print(" Program Started: " + str(gblstrStartTime))
       print(f" Current Run Time: {intDays} days, {intHours} hours, {round(fltMins,3)} minutes")
         
       if fltProgress.value >= 100:
         print(" Loop Progress: Finished")
       elif fltProgress.value > 0.0:
-        fltRunningTime = round(fltRunningTime/fltProgress.value, 2)
-        intDays, intHours, fltMins = lstDeltaTime(fltRunningTime)
+        fltEstimatedTime = round(fltRunningTime/fltProgress.value*100., 2)
+        intDays, intHours, fltMins = lstDeltaTime(fltEstimatedTime)
         print(f" Estimated loop time remaining:{intDays} days,{intHours} hours, {round(fltMins,3)} minutes")
       print("\n Current Temps")
       i = 0

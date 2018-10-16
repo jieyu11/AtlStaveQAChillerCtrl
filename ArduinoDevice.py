@@ -116,17 +116,8 @@ class clsArduino (clsDevice):
     was an error in reading the flowmeter analog value, return -1.00 for flow rate.
     '''
     # Flow rate approximation is as given by: 
-    # 
-    # F = 1.15950427365*V + -0.190529119312 + -0.00135912949604*T + 3.14170448696e-05*T*T
-    #
-    # This is only valid in the voltage region from 0.7-1.5 lower or higher values still use
-    # the same formula, but if the formula would return a negative rate it is set to 0
-
-    VSlope = 1.199
-    Toffset = -0.234
-    TSlope = -0.00236
-    TSqVal = 6.005e-5
-
+    # F(V,T) = c0+c1V+c2T+c3VT+c4V^2+c5T^2+c6V^2T+c7VT^2+c8V^2T^2  #### Yale Calibration Oct 15 2018
+    c0,c1,c2,c3,c4,c5,c6,c7,c8 = -0.424,1.393,0.00220,-0.00484,-0.0587,-1.12e-5,.00126,1.91e-5,-8.51e-8
     self._pdev.write(('F\n').encode())
     logging.debug(self._strClassName + ': Sent command F (read Flowrate) to Arduino')
 
@@ -138,8 +129,9 @@ class clsArduino (clsDevice):
     if "OK" in strReturnText:
       intIndex = strReturnText.index("K") + 2        # Find end of "OK " in text.
       fltFlowValue = float(strReturnText[intIndex:])  # Convert text value to float.
-      correction = Toffset + TSlope*fltCoolantTemp + TSqVal*fltCoolantTemp*fltCoolantTemp
-      fltFlowRate = VSlope*fltFlowValue + correction
+      T = fltCoolantTemp
+      V = fltFlowValue
+      fltFlowRate = c0+c1*V+c2*T+c3*V*T+c4*V*V+c5*T*T+c6*V*V*T+c7*V*T*T+c8*V*V*T*T
       if fltFlowRate < 0:
         fltFlowRate = 0.
       logging.info("<HIDDEN> Arduino Voltage: "+str(round(fltFlowValue,3)))
