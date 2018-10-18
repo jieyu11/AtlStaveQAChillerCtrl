@@ -99,6 +99,7 @@ gblfltTempLowerLimit = -60.0
 # Units are rotations per second - RPS or Hertz.
 gblfltBoostPumpUpperLimit = 40.0
 gblfltBoostPumpLowerLimit = 1.0
+gblfltFlowUpperLimit = 1.5
 
 # Convert True/False boolean values to Yes/No text.
 gblstrNoYes = ['No','Yes']
@@ -270,7 +271,6 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
                           f"{gblfltTempLowerLimit} and {gblfltTempUpperLimit}")
       elif 'ps' in strVal:              # Set booster pump rotations per second to new value.
         strVal= strVal.lstrip('pset ')  # Strip off command and save value.
-        print (strVal)
         try:
           newValue = float(strVal)
           if newValue < gblfltBoostPumpLowerLimit or newValue > gblfltBoostPumpUpperLimit:
@@ -283,6 +283,18 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
         except:
           print(f"\aInvalid value. Value must be between " \
                           f"{gblfltBoostPumpLowerLimit} and {gblfltBoostPumpUpperLimit}")
+      elif 'fs' in strVal:             #Set booster pump into flow mode and set flow rate
+        strVal =strVal.lstrip('fset ') #Strip off command and save value.
+        try:
+          newValue = float(strVal)
+          if newValue > gblfltFlowUpperLimit or newValue < 0:
+            print(f"\aInvalid value. Value must be between 0 and {gblfltFlowUpperLimit}")
+            pass
+          else:
+            continue
+            #fltRPS[2] = newValue
+        except:
+          print(f"\aInvalid value. Value must be between 0 and {gblfltFlowUpperLimit}")
       else:
         print("\aInvalid set command. Use: tset r or pset r, where r is real number.\n")
     
