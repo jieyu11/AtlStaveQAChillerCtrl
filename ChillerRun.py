@@ -626,10 +626,10 @@ class clsChillerRun :
       #Get Temperature and Time Period Lists
       try:
         # split values by ',' and then remove the white spaces.
-        strTemperatureList = [ x.strip(' ') for x in self._istRunCfg.get( name, 'Temperagures' ).split(',') ]
+        strTemperatureList = [ x.strip(' ') for x in self._istRunCfg.get( name, 'Temperatures' ).split(',') ]
         strTimePeriodList  = [ x.strip(' ') for x in self._istRunCfg.get( name, 'TimePeriod'   ).split(',') ]
       except:
-        logging.fatal("Section: "+ name + ", Key: Temperagures, TimePeriod not present in configure: %s" % \
+        logging.fatal("Section: "+ name + ", Key: Temperatures, TimePeriod not present in configure: %s" % \
                        self._istRunCfg.name() )
         intStatusCode.value = StatusCode.FATAL 
         return

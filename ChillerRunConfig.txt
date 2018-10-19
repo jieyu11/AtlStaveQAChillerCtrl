@@ -11,21 +11,21 @@
 
 #  *** Email parameters set for sending messages to users during operation ***
 [Email]
-Users : wheidorn@gmail.com,wheidorn@iastate.edu, mckay@iastate.edu 
+Users : wheidorn@iastate.edu 
 
 #  *** Run parameters for the SP Scientific RC211B0 recirculating chiller. ***
 [Chiller] 
 NLoops : 1                  # number of loops to run
 StartTemperature : 20       # set the Chiller temperature when it just starts
-Temperagures : -50          # Temperatures to run through, it stops at the last value when all loops are over
-TimePeriod:     1           # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
+Temperatures : 40,-55       # Temperatures to run through, it stops at the last value when all loops are over
+TimePeriod:     1,1         # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
 StopTemperature : 20        # set the Chiller temperature when it stops
 StopCoolTime:      1        # The number of minutes Chiller stays after running for the system to cool down
 
 #[Chiller] 
 #NLoops : 10                 # number of loops to run
 #StartTemperature : 20       # set the Chiller temperature when it just starts
-#Temperagures : -50,20,55,20 # Temperatures to run through, it stops at the last value when all loops are over
+#Temperatures : -50,20,55,20 # Temperatures to run through, it stops at the last value when all loops are over
 #TimePeriod:     30,10,30,10 # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
 #StopTemperature : 20        # set the Chiller temperature when it stops
 #StopCoolTime:     10        # The number of minutes Chiller stays after running for the system to cool down
@@ -34,18 +34,18 @@ StopCoolTime:      1        # The number of minutes Chiller stays after running 
 # 
 # adding additional loops on top of the default one:
 #   - name the section with "Chiller" in it, i.e: "ChillerX01"
-#   - with parameters of NLoops, Temperagures and TimePeriod
+#   - with parameters of NLoops, Temperatures and TimePeriod
 # 
 # example below:
 # #[ChillerX01] 
 # #NLoops : 10                          # number of loops to run
-# #Temperagures : -40,-20,0,10,20,35,20 # Temperatures to run through, it stops at the last value when all loops are over
+# #Temperatures : -40,-20,0,10,20,35,20 # Temperatures to run through, it stops at the last value when all loops are over
 # #TimePeriod:     30,30,30,30,30,30,10 # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
 
 #  *** Run parameters for boost pump. ***
 [Pump]
 StartRPM : 10 # the RPM value when the pump starts
-RunRPM : 21.4 # the RPM value when the pump is running for data taking
+RunRPM : 10   # the RPM value when the pump is running for data taking
 StopRPM : 10  # the RPM value when the pump stops after running
 
 #  *** Run parameters for the Omega HH314A humidity meter. ***
