@@ -218,7 +218,7 @@ class clsThermocouple ( clsDevice ):
 
 # ------------------------------------------------------------------------------
 class clsChiller ( clsDevice ):
-  def __init__(self, strName, strPort, intBaud, bytesize=7, parity='N', stopbits=1, timeout=2):
+  def __init__(self, strName, strPort, intBaud, bytesize=8, parity='N', stopbits=1, timeout=2):
     """
       Device: Chiller, function of initialization
     """
@@ -298,7 +298,7 @@ class clsPump ( clsDevice ):
     """
     super().__init__(strName, strPort, intBaud, bytesize, parity, stopbits, timeout)
     self.istCRC = CycRedundCheck()
-    self.fltRPSmin = 5.0
+    self.fltRPSmin = 1.0
     self.fltRPSmax = 40.0
     self.fltRPSdefault = 12.0
     self._value = 0
