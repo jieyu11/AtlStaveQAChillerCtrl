@@ -12,7 +12,7 @@ USB ports on the controlling computer running Windows 10.
 	FTS Systems RC211B0 recirculating cooler;
 	Lenze ESV751N02YXC NEMA 4x inverter drive; 
 	Liquiflo H5FSPP4B002606US-8(-60) booster pump;
-	3/4 HP, 1800RPM, 60Hz, 3-phase, PVN56T17V5338B B motor;
+	3/4 HP, 1800RPS, 60Hz, 3-phase, PVN56T17V5338B B motor;
 	Omega HH314A Humidity/Temperature Meter;
 	Omega HH147U Data Logger Thermometer;
 	Arduino UNO Rev 3 shield with a DFRobot relay shield;
@@ -38,6 +38,7 @@ History: ----------------------------------------------------------------------
   V2.0 - Aug-2018  Restructured code to 9 processes
 				   Updated comments and modified screen messages to operater.
   V2.1 - Sep-2018  Replaced Omega HH147U with Omega HH109A.
+  V2.2 - Oct-2018  Added auto flow control.
 Environment: ------------------------------------------------------------------
 	This program is written in Python 3.6.  Python can be freely downloaded from 
 http://www.python.org/.  This program has been tested on PCs running Windows 10.
@@ -88,7 +89,7 @@ from ChillerRun import *     # This is our own code. States what each process do
 # Global data section ----------------------------------------------------------
 
 gblstrPyVersion = "3.6"    # Version of Python enterpreter used.
-gblstrCodeVersion = "2.1"  # Version of this Python program.
+gblstrCodeVersion = "2.2"  # Version of this Python program.
 
 # Define the upper & lower coolant temperature limits we expect to ever encounter.
 # The current coolant, 3m Novec HFE-7100, actual limits are: -135C to 61C.
@@ -146,7 +147,7 @@ def lstDeltaTime(fltElapsedTime):
   return [intDays, intHours, fltMins]
 
 # User Commands ----------------------------------------------------------------
-def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, fltHumidity, fltRPS,fltProgress,procList, bolRunPseudo):
+def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, fltHumidity, fltRPS,fltLPM, fltProgress,procList, bolRunPseudo):
   '''
     This is a list of user commands that will be active once the system has been
     started. It can change the shutdown state of the chiller, kill the processes,
@@ -238,7 +239,7 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
       if fltProgress.value >= 100:
         print(" Loop Progress: Finished")
       elif fltProgress.value > 0.0:
-        fltEstimatedTime = round(fltRunningTime/fltProgress.value*100., 2)
+        fltEstimatedTime = round((fltRunningTime/fltProgress.value*100.)-fltRunningTime, 2)
         intDays, intHours, fltMins = lstDeltaTime(fltEstimatedTime)
         print(f" Estimated loop time remaining:{intDays} days,{intHours} hours, {round(fltMins,3)} minutes")
       print("\n Current Temps")
@@ -249,11 +250,15 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
         i += 1
       print(" Humidity: " + str(round(fltHumidity.value, 2)) + " %")
       print(" Pump Set: " + str(fltRPS[0])+ " rps")
+      print(" Flow Set: " + str(fltLPM[0])+ " l/min")
       print(" FlowRate: " + str(round(fltRPS[1],3))+ " l/min")
 
     elif 'tav' in strVal:                       # Found actuator valve toggle command.
       print(f"Actuator valves switched to other state.")
-      intSettings[Setting.TOGGLE] = True
+      if intSettings[Setting.TOGGLE] == 0:
+        intSettings[Setting.TOGGLE] = 1
+      else:
+        intSettings[Setting.TOGGLE] = 0
 
     elif 'set' in strVal:                       # Found set in input.
       newValue = strVal.strip("tpset ")  # Get new value & convert to real number.
@@ -291,8 +296,7 @@ def procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, flt
             print(f"\aInvalid value. Value must be between 0 and {gblfltFlowUpperLimit}")
             pass
           else:
-            continue
-            #fltRPS[2] = newValue
+            fltLPM[0] = newValue
         except:
           print(f"\aInvalid value. Value must be between 0 and {gblfltFlowUpperLimit}")
       else:
@@ -373,6 +377,21 @@ def runPseudo():
     When all are set, press enter")
     print('\n')
   return False
+# ------------------------------------------------------------------------------
+def flowRate():
+  '''
+    Ask the user if they want to run with manual or automatic flow rates. If
+    manual is selected, the device will run with specific set booster pump rps
+    values. If auto is set, the booster pump will run a feedback loop that corrects
+    the booster pump to the user set flow rate in real time.
+  '''
+  strVal= input(" USER: Do you wish to run with auto (0.4-1.5 l/min) or manual flow control (1-40 rps)? (a/m/q) ")
+  if strVal.lower() == 'a':
+    return True
+  elif strVal.lower() == 'q':
+    stopRun()
+  else:
+    return False
 
 # ------------------------------------------------------------------------------
 def routine():
@@ -473,6 +492,7 @@ def main():
       bolWaitInput = waitInput()  # Ask whether to run autonomous routine.
     else:
       bolWaitInput = False
+    bolAutoFlow = flowRate()
     bolSendEmail = sendEmail()  # Ask whether to send information emails to people.
     
     # Regurgitate back to user the options chosen.  Give user chance to modify.
@@ -480,6 +500,7 @@ def main():
     print(f"   Using PseudoData: {gblstrNoYes[bolRunPseudo]}")
     print(f"      Using Routine: {gblstrNoYes[bolRoutine]}")
     print(f"      Holding Temps: {gblstrNoYes[bolWaitInput]}")
+    print(f"      AutomaticFlow: {gblstrNoYes[bolAutoFlow]}")
     print(f"      Sending Email: {gblstrNoYes[bolSendEmail]}\n")
     strVal= input(" USER: Keep settings and begin? OR quit now? (y/n/q) ")
     if strVal.lower() == 'y':    # User satisfied so, proceed.
@@ -499,7 +520,7 @@ def main():
   intSettings = Array('i',[SysSettings.BOOT,False,False,0])  #  intSettings[0] = Current system setting
                                                              #  intSettings[1] = Need to change TSet?
                                                              #  intSettings[2] = Need to change PSet?
-                                                             #  intSettings[3] = Valve Setting?
+                                                             #  intSettings[3] = Valve Setting? Starts in bypass mode
 
   fltTemps = Array('d',[20,20,20,20,20,20,20,20]) # Set temperature values at room temperature: 
                                                   #   fltTemps[0]   = Chiller SetTempValue,
@@ -509,6 +530,9 @@ def main():
   fltHumidity = Value('d',100)             # Start humidity value of 100%.
   fltRPS = Array('d',[10,10])                     #   fltRPS[0]   = Booster Pump Set Value rps
                                                   #   fltRPS[1]   = Arduino Flow Rate
+  fltLPM = Array('d',[0.5,0])                # Flow rate settings
+                                                  #   fltLPM[0]   = User Set Flow Rate
+                                                  #   fltLPM[1]   = Arduino Flow rate
 
   fltProgress = Value('d',0)                      # Start progress value. 0% at beginning.
 
@@ -531,7 +555,7 @@ def main():
   # The Arduino process reads the RPS data and changes valve settings.
   mpList.append(mp.Process(target = clsChillerRun.procArduino, name = 'Arduino ', \
                              args =(clsChillerRun,queue,intStatusCode,intProcessStates, intSettings, fltTemps, \
-                                    fltRPS, intLoggingLevel, bolRunPseudo)))
+                                    fltRPS, fltLPM, intLoggingLevel, bolRunPseudo)))
 
   # The Chiller  process runs the chiller and reads chiller reservoir temp.
   mpList.append(mp.Process(target = clsChillerRun.chillerControl, name = 'Chiller ', \
@@ -541,19 +565,19 @@ def main():
   # The Pump process runs the booster pump.
   mpList.append(mp.Process(target = clsChillerRun.pumpControl, name = 'BstrPump', \
                              args =(clsChillerRun, queue, intStatusCode, intProcessStates, intSettings, \
-                                    fltTemps, fltRPS, intLoggingLevel, bolRunPseudo)))
+                                    fltTemps, fltRPS, fltLPM, intLoggingLevel, bolRunPseudo, bolAutoFlow)))
 
   # The Routine process controls the Booster Pump and Chiller
   mpList.append(mp.Process(target = clsChillerRun.procRoutine, name = 'Routine ', \
                              args =(clsChillerRun, queue, intStatusCode, intProcessStates, intSettings, \
-                                    fltTemps, fltHumidity, fltRPS, fltProgress, intLoggingLevel, \
-                                    bolWaitInput, bolRoutine, bolRunPseudo, gblstrStartTimeVal)))
+                                    fltTemps, fltHumidity, fltRPS, fltLPM, fltProgress, intLoggingLevel, \
+                                    bolWaitInput, bolRoutine, bolRunPseudo, bolAutoFlow, gblstrStartTimeVal)))
  
   #The Watchdog process checks that all of the other processes are running
   procShortList = mpList
   mpList.append(mp.Process(target = clsChillerRun.procWatchDog, name = 'WatchDog', \
                              args =(clsChillerRun, queue, intStatusCode, intProcessStates, intSettings, fltTemps,\
-                    fltHumidity, fltRPS, fltProgress, bolSendEmail,\
+                    fltHumidity, fltRPS, fltLPM, fltProgress, bolSendEmail,\
                     intLoggingLevel,gblstrStartTime,gblstrStartTimeVal,procShortList)))
 
   # Depending if operating live or pseudo (simulation), print the correct notice.
@@ -582,7 +606,7 @@ def main():
   # At this point all processes should be started. The routine procUserCommands now monitors 
   # the command window for user input.  The system will run until it goes into a DONE state
   # or is aborted by user.
-  procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, fltHumidity, fltRPS,fltProgress,mpList, bolRunPseudo)
+  procUserCommands(intStatusCode, intProcessStates, intSettings, fltTemps, fltHumidity, fltRPS, fltLPM, fltProgress,mpList, bolRunPseudo)
                    
 
   # The system has reach a DONE state via normal operations or fatal state or 

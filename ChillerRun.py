@@ -74,8 +74,8 @@ class Setting (IntEnum) :
   """
   STATE       = 0 
   TCHANGE     = 1 
-  PCHANGE     = 2 
-  TOGGLE    = 3 
+  PCHANGE     = 2
+  TOGGLE      = 3 
 
 
 
@@ -473,7 +473,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Pump Process -----------------------------------------------------------------
-  def pumpControl(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps,fltRPS,intLoggingLevel,bolRunPseudo) :
+  def pumpControl(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps,fltRPS,fltLPM,intLoggingLevel,bolRunPseudo,bolAutoFlow) :
     """
     control the pump  
     """
@@ -481,7 +481,7 @@ class clsChillerRun :
     self.funcLoggingConfig(queue,intLoggingLevel) 
     self.funcInitialize(self,["Pump"], bolRunPseudo,intStatusCode)
 
-    #wait until all programs have initiallized
+    #wait until all programs have initialized
     while intSettings[Setting.STATE] == SysSettings.BOOT:
       time.sleep(1)
 
@@ -492,11 +492,87 @@ class clsChillerRun :
       time.sleep(5)
     logging.info('< RUNNING > Pump Set RPS: 10')
     logging.info ( self._strclassname + ' Pump started. ')
+    intNoFlow = False #This will give a warning if the flow drops to low...
+                      # then cause the system to shutdown
 
     #Pump idles 
     while intStatusCode.value < StatusCode.ABORT:
       #Check To Exit Loop
       if intSettings[Setting.STATE] > SysSettings.SHUTDOWN: break
+        
+      #Do the idle thing (autoFlow adjust, Check Pump, Wait) OR (Check Pump, Wait)
+      elif bolAutoFlow == True:  #AutoFlow mode
+        self.sendcommand(self, 'iStatus?', intStatusCode, fltTemps,fltRPS)
+        time.sleep(1)
+        fltFlowSetting = fltLPM[0]
+        fltCurrentFlow = fltLPM[1]
+        fltCurRPS = fltRPS[0]
+        Interval = 0.1
+        fltFlowMax = fltFlowSetting + Interval/2.
+        fltFlowMin = fltFlowSetting - Interval/2.
+        
+        # Check to see if the current flow is within the interval. If it is not adjust the pump.
+        if fltCurrentFlow < 0.2 and fltCurrentFlow != -1 and intNoFlow == True: #Low flow shutdown. Starts shutdown.
+          logging.fatal(" FLOW IS TOO LOW! BEGINNING SHUTDOWN")
+          intStatusCode.value = StatusCode.FATAL
+          
+        elif fltCurrentFlow < 0.2 and fltCurrentFlow != -1: #Low flow warning.
+          logging.info(" Flow is too low! Will Check again for shutdown")
+          if intStatusCode.value > StatusCode.ERROR: break
+          time.sleep(4) #This may not be necessary
+          self.funcResetDog(Process.PUMP,intStatusArray)
+          intNoFlow = True
+        
+        elif fltCurrentFlow > fltFlowMax: #Flow is greater than setting
+          fltFlowDiff = abs(fltCurrentFlow - fltFlowMax)
+          if fltFlowDiff > 0.5:
+            NewRPS = fltCurRPS - 5
+          elif fltFlowDiff > 0.1:
+            NewRPS = fltCurRPS - 1
+          else:
+            NewRPS = fltCurRPS - 0.1
+          if NewRPS < 1: #Check to be above minimum setting
+            logging.warning('< RUNNING > Pump Setting at Minimum! ')
+            NewRPS = 1
+            if NewRPS == fltCurRPS:
+              continue
+          NewRPS = round(NewRPS,1)
+          self.sendcommand(self, 'iRPS=' + str(NewRPS), intStatusCode,fltTemps,fltRPS)
+          intSettings[Setting.PCHANGE] = False
+          logging.info('< RUNNING > Pump Set RPS: '+str(NewRPS))
+          fltRPS[0] = NewRPS
+          time.sleep(5)
+          self.funcResetDog(Process.PUMP,intStatusArray)
+          intNoFlow = False
+        
+        elif fltCurrentFlow < fltFlowMin: #Flow is less than setting
+          fltFlowDiff = abs(fltCurrentFlow - fltFlowMin)
+          if fltFlowDiff > 0.5:
+            NewRPS = fltCurRPS + 5
+          elif fltFlowDiff > 0.1:
+            NewRPS = fltCurRPS + 1
+          else:
+            NewRPS = fltCurRPS + 0.1
+          if NewRPS > 40: #Check to be under maximum Setting
+            logging.warning('< RUNNING > Pump Setting at Maximum! ')
+            NewRPS = 40
+            if NewRPS == fltCurRPS:
+              continue
+          NewRPS = round(NewRPS,1)
+          self.sendcommand(self, 'iRPS=' + str(NewRPS), intStatusCode,fltTemps,fltRPS)
+          intSettings[Setting.PCHANGE] = False
+          logging.info('< RUNNING > Pump Set RPS: '+str(NewRPS))
+          fltRPS[0] = NewRPS
+          time.sleep(5)
+          self.funcResetDog(Process.PUMP,intStatusArray)
+          intNoFlow = False
+        
+        else: # Flow is within the boundaries
+          if intStatusCode.value > StatusCode.ERROR: break
+          time.sleep(4) #This may not be necessary
+          self.funcResetDog(Process.PUMP,intStatusArray)
+          intNoFlow = False
+        
       #Change RPS
       elif intSettings[Setting.PCHANGE] == True:
         NewRPS = fltRPS[0]
@@ -505,8 +581,7 @@ class clsChillerRun :
         logging.info('< RUNNING > Pump Set RPS: '+str(NewRPS))
         time.sleep(5)
         self.funcResetDog(Process.PUMP,intStatusArray)
-      #Do the idle thing(Check Pump, Wait)
-      else:
+      else:  #Regular Mode
         self.sendcommand(self, 'iStatus?', intStatusCode,fltTemps,fltRPS)
         time.sleep(1)
         if intStatusCode.value > StatusCode.ERROR: break
@@ -519,7 +594,7 @@ class clsChillerRun :
 
 # ------------------------------------------------------------------------------
 # Arduino Process --------------------------------------------------------------
-  def procArduino(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps,fltRPS,intLoggingLevel,bolRunPseudo) :
+  def procArduino(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps,fltRPS,fltLPM,intLoggingLevel,bolRunPseudo) :
     """
     control the arduino  
     """
@@ -529,18 +604,24 @@ class clsChillerRun :
     self.funcInitialize(self,["Arduino"],bolRunPseudo,intStatusCode)
     istArduino = self._istDevHdl.getdevice( 'Arduino' )
 
-    #wait until all programs have initiallized
+    #wait until all programs have initialized
     while intSettings[Setting.STATE] == SysSettings.BOOT:
       time.sleep(1)
 
+    #Reset the toggle state
+    toggleState = 0 #Bypass mode
+    self.sendcommand(self, 'aReset', intStatusCode,fltTemps)
+    logging.info(self._strclassname + 'Resetting valve state to Bypass Mode.')
+    strStates = ["Bypass Mode","Stave Mode"]
+    
     #Main Arduino Process
     while intStatusCode.value < StatusCode.KILLED:
       #Change valve state
-      if intSettings[Setting.TOGGLE] == True:
-        logging.info( self._strclassname + 'Toggling valve state.')
+      if intSettings[Setting.TOGGLE] != toggleState:
+        logging.info( self._strclassname + 'Toggling valve state to '+strStates[intSettings[Setting.TOGGLE]])
         self.sendcommand(self, 'aToggle',intStatusCode,fltTemps)
         logging.info('< RUNNING > Arduino Toggled')
-        intSettings[Setting.TOGGLE] = False
+        toggleState = intSettings[Setting.TOGGLE]
         time.sleep(6)
 
       #Do the idle thing (Read current RPS, Wait)
@@ -550,6 +631,7 @@ class clsChillerRun :
         self.funcResetDog(Process.ARDUINO,intStatusArray)
         logging.info( '<DATA> Arduino FlowRate = {:4.2f} l/min'.format( fltRps ) )
         fltRPS[1] = float(fltRps)
+        fltLPM[1] = float(fltRps)
         if intStatusCode.value > StatusCode.FATAL:
           break
 
@@ -557,13 +639,14 @@ class clsChillerRun :
         # probably not necessary until actuator valves are in
         
         time.sleep(2)
-
+        
+    self.sendcommand(self, 'aOpen', intStatusCode,fltTemps)
     logging.info('< RUNNING > Arduino finished shutdown. ') 
 
 # ------------------------------------------------------------------------------
 # Routine Process --------------------------------------------------------------
   def procRoutine(self,queue,intStatusCode,intStatusArray,intSettings,fltTemps, \
-                  fltHumidity,fltRPS,fltProgress,intLoggingLevel,bolWaitInput,bolRoutine,bolRunPseudo,fltStartTime):
+                  fltHumidity,fltRPS,fltLPM,fltProgress,intLoggingLevel,bolWaitInput,bolRoutine,bolRunPseudo,bolAutoFlow,fltStartTime):
     """
       main routine to run Chiller Pump with user set loops
     """
@@ -576,19 +659,21 @@ class clsChillerRun :
     try:
       intStartTemp = int(self._istRunCfg.get('Chiller','StartTemperature'))  
       intStopTemp = int(self._istRunCfg.get( 'Chiller', 'StopTemperature'))
-      fltRunRPM = float(self._istRunCfg.get('Pump','RunRPM'))
+      fltRunRPS = float(self._istRunCfg.get('Pump','RunRPS'))
+      fltRunLPM = float(self._istRunCfg.get('Pump','RunLPM'))
     except:
-      logging.warning("< RUNNING > Missing chiller Start Temperature, StopTemperature and/or RunRPM, using 20, 22, and 22 respectively")
+      logging.warning("< RUNNING > Missing chiller Start Temperature, StopTemperature and/or RunRPS, using 20, 22, and 22 respectively")
       intStartTemp =20
       intStopTemp = 22
-      fltRunRPM = 22.
+      fltRunRPS = 22.
+      fltRunLPM = 1.
 
-    #wait until all programs have initiallized
+    #wait until all programs have initialized
     while intSettings[Setting.STATE] == SysSettings.BOOT:
       time.sleep(1)
 
     #Tell the devices to go to start conditions
-    fltRPS[0] = fltRunRPM
+    fltRPS[0] = fltRunRPS
     intSettings[Setting.PCHANGE] = True
     time.sleep(5) #So they don't overlap too much
     fltTemps[0] = intStartTemp
@@ -612,7 +697,7 @@ class clsChillerRun :
       try:
         intChiNLoops  = abs(int( self._istRunCfg.get( name, 'NLoops' ) ) )
         intStopTemp = int(self._istRunCfg.get( name, 'StopTemperature'))
-        fltRunRPM = float(self._istRunCfg.get('Pump','RunRPM'))
+        fltRunRPS = float(self._istRunCfg.get('Pump','RunRPS'))
       except:
         logging.fatal("Sections: "+ name + ", Key: NLoops not present in configure: %s" % \
                        self._istRunCfg.name())
@@ -620,7 +705,8 @@ class clsChillerRun :
         return
       logging.info("---------- Section: "+ name + ", number of loops " + str(intChiNLoops) )    
       #Set Pump to loaded setting
-      fltRPS[0] = fltRunRPM #Slow RPSs
+      fltRPS[0] = fltRunRPS #Set value
+      fltLPM[0] = fltRunLPM #Set value
       intSettings[Setting.PCHANGE] = True
 
       #Get Temperature and Time Period Lists
@@ -628,19 +714,23 @@ class clsChillerRun :
         # split values by ',' and then remove the white spaces.
         strTemperatureList = [ x.strip(' ') for x in self._istRunCfg.get( name, 'Temperatures' ).split(',') ]
         strTimePeriodList  = [ x.strip(' ') for x in self._istRunCfg.get( name, 'TimePeriod'   ).split(',') ]
+        strToggleList  = [ x.strip(' ') for x in self._istRunCfg.get( name, 'ToggleState'   ).split(',') ]
       except:
-        logging.fatal("Section: "+ name + ", Key: Temperatures, TimePeriod not present in configure: %s" % \
+        logging.fatal("Section: "+ name + ", Key: Temperatures, TimePeriod, ToggleState not present in configure: %s" % \
                        self._istRunCfg.name() )
         intStatusCode.value = StatusCode.FATAL 
         return
 
       #Check List Lengths and cut to minimum
       intNTemperature = len( strTemperatureList )
-      if intNTemperature != len(strTimePeriodList) :
+      if intNTemperature != len(strTimePeriodList):
         logging.warning( ' Length of temperature list ' + str(intNTemperature) + ' != ' + \
                          ' Length of time period list ' + str( len( strTimePeriodList ) ) + '. Set to Minimum' )
         if len( strTimePeriodList ) < intNTemperature :
           intNTemperature = len( strTimePeriodList )
+      if intNTemperature != len(strToggleList):
+        logging.warning( ' Length of temperature list ' + str(intNTemperature) + ' != ' +\
+                         ' Length of toggle list ' + str( len(strToggleList)) + '. Using bypass state for missing toggles')
 
       #Begin Looping
       fltProgressStep = float(100 / (intChiNLoops * intNTemperature))   
@@ -650,8 +740,9 @@ class clsChillerRun :
           # changing the Chiller Temperature to a corresponding value
           fltTemps[0] = float(strTemperatureList[itemp]) #Change Set Temperature
           intSettings[Setting.TCHANGE] = True
-          #fltRPS[0] = self.funcPumpSetting(1,strTemperatureList[itemp]) #Change Pump Setting so its at 1 l/min
-          #intSettings[Setting.PCHANGE] = True #To be dealt with
+          
+          # set the toggle state to corresponding value
+          intSettings[Setting.TOGGLE] = int(strToggleList[itemp])
  
           # Begin waiting to reach the set temperature        
           self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput) 
@@ -684,7 +775,9 @@ class clsChillerRun :
       fltTemps[0] = intStopTemp #Room Temperature
       intSettings[Setting.TCHANGE] = True
       self.funcTempWait (self,1, intStatusCode, intStatusArray, intSettings, fltTemps, bolWaitInput)
+    intSettings[Setting.TOGGLE] = 0 # Set the system to bypass mode
     fltRPS[0] = 10 #Slow RPSs
+    fltLPM[0] = 0.5 #Slow LPMs
     intSettings[Setting.PCHANGE] = True
     time.sleep(5)
 
@@ -814,7 +907,7 @@ class clsChillerRun :
 # ------------------------------------------------------------------------------ 
 # Process Watchdog -------------------------------------------------------------
   def procWatchDog (self,queue, intStatusCode, intStatusArray, intSettings, fltTemps,\
-                    fltHumidity, fltRPS, fltProgress, bolSendEmail,\
+                    fltHumidity, fltRPS, fltLPM, fltProgress, bolSendEmail,\
                     intLoggingLevel,strStartTime,strStartTimeVal,procShortList):
     '''
       The Watchdog is the system protection protocol. It has 2 purposes,
@@ -885,7 +978,7 @@ class clsChillerRun :
       """
       if bolSendEmail == True:  
         strStatusText = self.strStatus(intStatusCode, intStatusArray, intSettings,\
-                                       fltTemps, fltHumidity, fltRPS, fltProgress, strStartTime,\
+                                       fltTemps, fltHumidity, fltRPS,fltLPM, fltProgress, strStartTime,\
                                        strStartTimeVal, procShortList)
         print('Sending Message: '+strTitle+': '+strMessage + str(strStatusText))
         for person in mailList: 
@@ -894,7 +987,7 @@ class clsChillerRun :
           time.sleep(1)
       else:
         strStatusText = self.strStatus(intStatusCode, intStatusArray, intSettings,\
-                                       fltTemps, fltHumidity, fltRPS, fltProgress, strStartTime,\
+                                       fltTemps, fltHumidity, fltRPS, fltLPM, fltProgress, strStartTime,\
                                        strStartTimeVal, procShortList)
         print('Watchdog Message: '+strTitle+': '+strMessage + str(strStatusText))
 
@@ -1004,7 +1097,7 @@ class clsChillerRun :
  
 # Function: strStatus ----------------------------------------------------------
   def strStatus(intStatusCode, intStatusArray, intSettings, fltTemps, fltHumidity, \
-                fltRPS, fltProgress, gblstrStartTime, gblstrStartTimeVal, procShortList):
+                fltRPS, fltLPM, fltProgress, gblstrStartTime, gblstrStartTimeVal, procShortList):
     '''
     returns a string that is the current status of the system
     '''
@@ -1038,6 +1131,7 @@ class clsChillerRun :
       i+=1
     strMessage.append("\n     Humidity: " + str(round(fltHumidity.value,2)) + " %")
     strMessage.append("\n Pump Setting: " + str(round(fltRPS[0],2)) + " rps")
+    strMessage.append("    Set FRate: " + str(round(fltLPM[0],2)) + " l/min")
     strMessage.append("    Flow Rate: " + str(round(fltRPS[1],2)) + " l/min")
     strMessage = ''.join(strMessage) 
     return strMessage

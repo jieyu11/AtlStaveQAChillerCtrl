@@ -11,46 +11,28 @@
 
 #  *** Email parameters set for sending messages to users during operation ***
 [Email]
-Users : wheidorn@iastate.edu 
+Users : wheidorn@iastate.edu,skang@iastate.edu,mckay@iastate.edu 
 
 #  *** Run parameters for the SP Scientific RC211B0 recirculating chiller. ***
 [Chiller] 
-NLoops : 1                  # number of loops to run
-StartTemperature : 20       # set the Chiller temperature when it just starts
-Temperatures : 40,-55       # Temperatures to run through, it stops at the last value when all loops are over
-TimePeriod:     1,1         # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
-StopTemperature : 20        # set the Chiller temperature when it stops
-StopCoolTime:      1        # The number of minutes Chiller stays after running for the system to cool down
-
-#[Chiller] 
-#NLoops : 10                 # number of loops to run
-#StartTemperature : 20       # set the Chiller temperature when it just starts
-#Temperatures : -50,20,55,20 # Temperatures to run through, it stops at the last value when all loops are over
-#TimePeriod:     30,10,30,10 # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
-#StopTemperature : 20        # set the Chiller temperature when it stops
-#StopCoolTime:     10        # The number of minutes Chiller stays after running for the system to cool down
-#
-#
-# 
-# adding additional loops on top of the default one:
-#   - name the section with "Chiller" in it, i.e: "ChillerX01"
-#   - with parameters of NLoops, Temperatures and TimePeriod
-# 
-# example below:
-# #[ChillerX01] 
-# #NLoops : 10                          # number of loops to run
-# #Temperatures : -40,-20,0,10,20,35,20 # Temperatures to run through, it stops at the last value when all loops are over
-# #TimePeriod:     30,30,30,30,30,30,10 # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
+NLoops : 1                     # number of loops to run
+StartTemperature : 20          # set the Chiller temperature when it just starts
+Temperatures : -55,40         # Temperatures to run through, it stops at the last value when all loops are over
+TimePeriod:   10,5       # The number of minutes Chiller stays at the temperature, e.g. at-50 C, stay 30 min
+ToggleState: 1,1             # Toggles the state of the stave bypass. 0 is bypass 1 is stave.
+StopTemperature : 20           # set the Chiller temperature when it stops
+StopCoolTime:      1           # The number of minutes Chiller stays after running for the system to cool down
 
 #  *** Run parameters for boost pump. ***
 [Pump]
-StartRPM : 10 # the RPM value when the pump starts
-RunRPM : 10   # the RPM value when the pump is running for data taking
-StopRPM : 10  # the RPM value when the pump stops after running
+StartRPS : 10 # the RPS value when the pump starts
+RunRPS : 10   # the RPS value when the pump is running for data taking: Used if bolAutoFlow = False and initial value for bolAutoFlow = True
+RunLPM : 1    # the LPM value when the pump is running for data taking: Used if bolAutoFlow = True
+StopRPS : 10  # the RPS value when the pump stops after running
 
 #  *** Run parameters for the Omega HH314A humidity meter. ***
 [Humidity]
-StopUpperThreshold :  4 # in per cent, the upper limit of the humidity to STOP the system when running at low temperature
+StopUpperThreshold :  5 # in per cent, the upper limit of the humidity to STOP the system when running at low temperature
 WarnUpperThreshold :  2 # in per cent, the upper limit of the humidity to WARN the system when running at low temperature
 Frequency          : 30 # one data point every ? seconds
 

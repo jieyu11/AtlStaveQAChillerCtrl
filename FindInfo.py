@@ -97,6 +97,7 @@ def main():
     csv_reader = csv.reader(ffile)
   except:
     print("ERROR: Failed to read csv file")
+    return
 
   #Generate Data Outline
   nlines = 0

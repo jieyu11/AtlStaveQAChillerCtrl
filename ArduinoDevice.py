@@ -79,23 +79,36 @@ class clsArduino (clsDevice):
     fltCurrentTemps = fltTempsfltRPS[0]
     logging.debug( self._strClassName + ' Sending command ' + strCmdName + ' to device ' + self.strName )
     staveTemp = fltCurrentTemps[3] #This should be the outflow
+    avgFlow = 0
+    intNumMeas = 3
+    intNumReal = intNumMeas
     
-    if strCmdName == 'F':
-      rate1 = clsArduino.readFlowRate(self, staveTemp) #This can be made better
-      time.sleep(2)
-      rate2 = clsArduino.readFlowRate(self, staveTemp) #This can be made better
-      time.sleep(2) 
-      rate3 = clsArduino.readFlowRate(self, staveTemp) #This can be made better
-      self._value = (rate1+rate2+rate3)/3.
+    if strCmdName == 'F': #Read the flow meter voltage
+      for i in range(intNumMeas): #Do this intNumMeas times
+        fltFlow = clsArduino.readFlowRate(self, staveTemp)
+        if fltFlow == -1:
+          intNumReal += -1
+          raise ValueError("Bad Response!") 
+        avgFlow += fltFlow        
+        time.sleep(1.8)
+      if intNumReal <= 0:
+        raise ValueError("BAD VALUE!")
+      self._value = avgFlow/intNumReal
 
-    elif strCmdName == 'V':
+    elif strCmdName == 'V': #Toggle the valves
       bolTog = clsArduino.toggleValves(self)
+      self._value = bolTog
+      
+    elif strCmdName == 'R': #Reset the valves to the startup state
+      bolTog = clsArduino.resetValves(self)
       self._value = bolTog
 
     elif strCmdName == 'S':
       bolOn = clsArduino.status(self)
       self._value = bolOn
-
+    elif strCmdName == 'O':
+      bolOpen = clsArduino.openValves(self)
+      self._value = bolOpen
     logging.debug( self._strClassName + 'Command received')
   def last(self):
     return self._value
@@ -116,8 +129,8 @@ class clsArduino (clsDevice):
     was an error in reading the flowmeter analog value, return -1.00 for flow rate.
     '''
     # Flow rate approximation is as given by: 
-    # F(V,T) = c0+c1V+c2T+c3VT+c4V^2+c5T^2+c6V^2T+c7VT^2+c8V^2T^2  #### Yale Calibration Oct 15 2018
-    c0,c1,c2,c3,c4,c5,c6,c7,c8 = -0.424,1.393,0.00220,-0.00484,-0.0587,-1.12e-5,.00126,1.91e-5,-8.51e-8
+    # F(V,T) = c0+c1V+c2T+c3VT+c4V^2+c5T^2+c6V^2T+c7VT^2+c8V^2T^2  #### ISU Calibration Oct 31, 2018
+    c0,c1,c2,c3,c4,c5,c6,c7,c8 = -0.221,1.270,0.00103,-0.00359,-0.0496,-2.23e-5,0.000619,-2.97e-5,1.51e-5
     self._pdev.write(('F\n').encode())
     logging.debug(self._strClassName + ': Sent command F (read Flowrate) to Arduino')
 
@@ -141,6 +154,46 @@ class clsArduino (clsDevice):
       
     return fltFlowRate
     
+# ------------------------------------------------------------------------------
+  def resetValves(self):
+    '''
+      Toggles the 3 actuator valves such that the inlet and the outlet to the stave are
+      closed and the bypass is open.
+    '''
+    self._pdev.write(('R\n'.encode()))
+    logging.debug(self._strClassName + ' Sent command R (reset Valves) to Arduino')
+    
+    # Read the returned text. Should return "OK"
+    byteline = self._pdev.readline()
+    strReturnText = byteline.decode()
+    if "OK" in strReturnText:
+      bolResult = True
+      logging.info("Valves toggled")
+    else:
+      logging.error(' <ERROR> Invalid response from Arduino to reset actuators.')
+      bolResult = False
+    return bolResult
+    
+# ------------------------------------------------------------------------------
+  def openValves(self):
+    '''
+      Toggles the 3 actuator valves such that the inlet and the outlet to the stave are
+      closed and the bypass is open.
+    '''
+    self._pdev.write(('O\n'.encode()))
+    logging.debug(self._strClassName + ' Sent command O (reset Valves) to Arduino')
+    
+    # Read the returned text. Should return "OK"
+    byteline = self._pdev.readline()
+    strReturnText = byteline.decode()
+    if "OK" in strReturnText:
+      bolResult = True
+      logging.info("Valves toggled")
+    else:
+      logging.error(' <ERROR> Invalid response from Arduino to reset actuators.')
+      bolResult = False
+    return bolResult
+  
 # ------------------------------------------------------------------------------
   def toggleValves(self):
     '''
